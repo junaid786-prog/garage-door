@@ -96,7 +96,6 @@ docker-compose down                  # Stop services
 ```
 
 ### Models
-- **User**: Authentication and user management
 - **Booking**: Service booking management (planned)
 - **Event**: Event tracking and analytics
 
@@ -136,9 +135,9 @@ DB_POOL_MAX=10
 DB_POOL_IDLE=10000
 DB_POOL_ACQUIRE=60000
 
-# Authentication
-JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=7d
+# Security (for future admin features if needed)
+# JWT_SECRET=your-secret-key
+# JWT_EXPIRES_IN=7d
 
 # External APIs
 SERVICETITAN_API_KEY=your-api-key

@@ -19,13 +19,6 @@ const startServer = async () => {
       console.log(`📝 Environment: ${config.env}`);
       console.log(`🔗 Health check: http://localhost:${PORT}/health`);
       console.log('=================================');
-      console.log('Available endpoints:');
-      console.log(`  POST   http://localhost:${PORT}/api/bookings`);
-      console.log(`  GET    http://localhost:${PORT}/api/bookings/:id`);
-      console.log(`  POST   http://localhost:${PORT}/api/events`);
-      console.log(`  GET    http://localhost:${PORT}/api/events`);
-      console.log(`  GET    http://localhost:${PORT}/api/events/stats`);
-      console.log('=================================');
     });
 
     return server;

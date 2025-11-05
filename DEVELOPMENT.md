@@ -45,39 +45,42 @@ src/
 
 **Example:**
 ```javascript
-// src/database/models/User.js
+// src/database/models/Booking.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../connection');
 
-const User = sequelize.define('User', {
+const Booking = sequelize.define('Booking', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
   },
-  email: {
+  customerName: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
+    validate: { len: [2, 100] },
+  },
+  customerEmail: {
+    type: DataTypes.STRING,
+    allowNull: false,
     validate: { isEmail: true },
   },
-  role: {
-    type: DataTypes.ENUM('admin', 'advertiser', 'publisher'),
+  serviceType: {
+    type: DataTypes.ENUM('repair', 'installation', 'maintenance'),
     allowNull: false,
   },
 }, {
   timestamps: true,
   underscored: true,
-  paranoid: true, // soft delete
   indexes: [
-    { fields: ['email'] },
-    { fields: ['role'] },
+    { fields: ['customer_email'] },
+    { fields: ['service_type'] },
   ],
 });
 
-User.prototype.someMethod = function() { /* ... */ };
+Booking.prototype.getFormattedDate = function() { /* ... */ };
 
-module.exports = User;
+module.exports = Booking;
 ```
 
 ### 2. Create Validation Schemas
@@ -106,26 +109,27 @@ module.exports = { registerSchema };
 
 **Example:**
 ```javascript
-// src/modules/auth/auth.controller.js
-const User = require('../../database/models/User');
+// src/modules/bookings/bookings.controller.js
+const Booking = require('../../database/models/Booking');
 const { ConflictError } = require('../../utils/errors');
 
-const register = async (req, res) => {
-  const { email, password } = req.body;
+const createBooking = async (req, res) => {
+  const { customerName, customerEmail, serviceType } = req.body;
 
-  const existing = await User.findOne({ where: { email } });
-  if (existing) throw new ConflictError('Email exists');
-
-  const user = await User.create({ email, password });
+  const booking = await Booking.create({ 
+    customerName, 
+    customerEmail, 
+    serviceType 
+  });
 
   res.status(201).json({
     success: true,
-    message: 'User created',
-    data: user,
+    message: 'Booking created successfully',
+    data: booking,
   });
 };
 
-module.exports = { register };
+module.exports = { createBooking };
 ```
 
 ### 4. Create Routes
@@ -135,18 +139,17 @@ module.exports = { register };
 
 **Example:**
 ```javascript
-// src/modules/auth/auth.routes.js
+// src/modules/bookings/bookings.routes.js
 const express = require('express');
-const controller = require('./auth.controller');
+const controller = require('./bookings.controller');
 const { validate } = require('../../middleware/validate');
-const { authenticate, authorize } = require('../../middleware/auth');
-const { registerSchema } = require('./auth.validation');
+const { createBookingSchema } = require('./bookings.validation');
 
 const router = express.Router();
 
-router.post('/register', validate(registerSchema), controller.register);
-router.get('/profile', authenticate, controller.getProfile);
-router.get('/admin-only', authenticate, authorize('admin'), controller.adminAction);
+router.post('/', validate(createBookingSchema), controller.createBooking);
+router.get('/:id', controller.getBooking);
+router.get('/', controller.listBookings);
 
 module.exports = router;
 ```
@@ -158,9 +161,9 @@ module.exports = router;
 **Example:**
 ```javascript
 // src/app.js
-const authRoutes = require('./modules/auth/auth.routes');
+const bookingRoutes = require('./modules/bookings/bookings.routes');
 
-app.use('/api/auth', authRoutes);
+app.use('/api/bookings', bookingRoutes);
 ```
 
 ## Response Format
