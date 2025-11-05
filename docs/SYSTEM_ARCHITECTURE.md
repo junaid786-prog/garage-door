@@ -130,3 +130,57 @@ service_areas 1:n bookings
 - PII data handling
 - Audit logging
 - Data retention policies
+
+## Usage Guide
+
+### System Startup
+```javascript
+// src/server.js
+const { connectRedis } = require('./config/redis');
+const workerManager = require('./workers');
+
+await connectRedis();
+await workerManager.startWorkers();
+```
+
+### Caching Usage
+```javascript
+const cacheService = require('./config/cache');
+
+// Time slots (5min TTL)
+await cacheService.cacheTimeSlots('90210', '2024-11-05', slots);
+const slots = await cacheService.getTimeSlots('90210', '2024-11-05');
+
+// Rate limiting
+const limit = await cacheService.checkRateLimit('192.168.1.1', 10, 60);
+if (!limit.allowed) return res.status(429).json({ error: 'Rate limited' });
+```
+
+### Queue Usage
+```javascript
+const queueManager = require('./config/queue');
+
+// Immediate response pattern
+app.post('/bookings', async (req, res) => {
+  const booking = await createBooking(req.body);
+  
+  // Queue background jobs
+  await queueManager.addBookingJob('create-servicetitan-job', booking, 'critical');
+  await queueManager.addNotificationJob('send-confirmation', confirmationData);
+  await queueManager.addAnalyticsJob('track-conversion', analyticsData);
+  
+  res.json({ bookingId: booking.id, status: 'confirmed' });
+});
+```
+
+### Queue Priorities
+- **Critical**: ServiceTitan jobs (instant)
+- **High**: Email/SMS (< 1min)
+- **Medium**: Data sync (< 5min)
+- **Low**: Analytics (< 10min)
+
+### Monitoring
+```javascript
+const stats = await queueManager.getAllQueueStats();
+const health = await cacheService.getStats();
+```

@@ -1,6 +1,8 @@
 const app = require('./app');
 const config = require('./config');
+const { connectRedis } = require('./config/redis');
 const { connectDB, closeDB } = require('./database/connection');
+const workerManager = require('./workers');
 
 const PORT = config.port;
 
@@ -11,7 +13,9 @@ const startServer = async () => {
   try {
     // Connect to database first
     await connectDB();
-    
+    await connectRedis();
+    await workerManager.startWorkers();
+
     // Then start the server
     const server = app.listen(PORT, () => {
       console.log('=================================');

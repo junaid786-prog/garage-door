@@ -46,6 +46,24 @@ services:
       retries: 5
       start_period: 30s
 
+  redis:
+    image: redis:7-alpine
+    container_name: a1-garage-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - a1-garage-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
   adminer:
     image: adminer:4.8.1
     container_name: a1-garage-adminer
@@ -68,4 +86,6 @@ volumes:
   postgres_data:
     driver: local
   postgres_test_data:
+    driver: local
+  redis_data:
     driver: local
