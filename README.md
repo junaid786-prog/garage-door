@@ -1,42 +1,106 @@
-# Garage Door Controller - Pilot
+# A1 Garage Door Booking Widget - Backend
 
-A Node.js backend service for managing garage door service bookings with event tracking and external API integration.
+A Node.js backend service for managing garage door service bookings with PostgreSQL database, event tracking, and external API integrations (ServiceTitan, Scheduling Pro, Klaviyo).
 
-## Project Structure
+## 🚀 Quick Start
 
-```
-src/
-├── modules/
-│   ├── bookings/       # Booking management
-│   ├── mock-api/       # ServiceTitan API simulator
-│   └── events/         # Event tracking
-├── middleware/         # Error handling
-├── utils/             # Response helpers, error classes
-├── config/            # Configuration management
-├── app.js            # Express app setup
-└── server.js         # Server entry point
-```
+### Prerequisites
+- Node.js v18+
+- Docker and Docker Compose (recommended)
+- PostgreSQL 14+ (if not using Docker)
 
-## Setup
+### Setup with Docker (Recommended)
 
-1. Install dependencies:
+1. **Clone and install dependencies:**
 ```bash
+git clone <repository-url>
+cd server
 npm install
 ```
 
-2. Copy environment file:
+2. **Start PostgreSQL with Docker:**
 ```bash
-cp .env.example .env
+docker-compose up -d postgres
 ```
 
-3. Start the server:
+3. **Setup environment:**
 ```bash
-npm start
+cp .env.docker .env
+```
+
+4. **Run database migrations:**
+```bash
+npm run db:migrate
+```
+
+5. **Start the server:**
+```bash
+npm run dev
 ```
 
 Server runs on `http://localhost:3000`
 
-## API Endpoints
+### Manual Setup (Without Docker)
+
+1. **Install PostgreSQL 14+**
+2. **Create database and user**
+3. **Copy and configure environment:**
+```bash
+cp .env.example .env
+# Edit .env with your database credentials
+```
+4. **Run migrations and start:**
+```bash
+npm run db:migrate
+npm run dev
+```
+
+## 📁 Project Structure
+
+```
+src/
+├── modules/
+│   ├── bookings/           # Booking management
+│   └── events/            # Event tracking
+├── database/
+│   ├── models/            # Sequelize models
+│   ├── migrations/        # Database migrations
+│   └── connection.js      # Database connection
+├── middleware/            # Express middleware
+├── utils/                # Utilities and helpers
+├── config/               # Configuration management
+├── app.js               # Express app setup
+└── server.js           # Server entry point with DB connection
+```
+
+## 🗃️ Database
+
+### Technology Stack
+- **Database**: PostgreSQL 14+
+- **ORM**: Sequelize v6+
+- **Connection**: Connection pooling with health checks
+
+### Available Commands
+```bash
+# Database management
+npm run db:create          # Create database
+npm run db:migrate         # Run migrations
+npm run db:migrate:undo    # Rollback migrations
+npm run db:seed            # Run seed data
+npm run db:seed:undo       # Undo seed data
+
+# Docker commands
+docker-compose up -d postgres        # Start PostgreSQL
+docker-compose logs postgres         # View logs
+docker-compose down                  # Stop services
+```
+
+### Models
+- **User**: Authentication and user management
+- **Booking**: Service booking management (planned)
+- **Event**: Event tracking and analytics
+
+## 🌐 API Endpoints
 
 ### Bookings
 - `POST /api/bookings` - Create new booking
@@ -47,215 +111,197 @@ Server runs on `http://localhost:3000`
 - `GET /api/events` - List all events
 - `GET /api/events/stats` - Event statistics
 
-### Mock API (ServiceTitan Simulator)
-- `POST /api/mock/servicetitan/jobs` - Create service job
-- `GET /api/mock/servicetitan/jobs/:jobId` - Get job status
-- `PUT /api/mock/servicetitan/jobs/:jobId` - Update job
-
 ### Health
 - `GET /health` - Health check
 
-## How It Works
+## 🔧 Environment Variables
 
-### Booking Flow
-
-```
-1. Client submits booking request
-   ↓
-2. Validation middleware checks input
-   ↓
-3. Booking service generates booking ID
-   ↓
-4. Event: "booking_created" tracked
-   ↓
-5. Mock API creates ServiceTitan job
-   ↓
-6. Event: "servicetitan_api_called" tracked
-   ↓
-7. Response sent with booking confirmation
-```
-
-### Data Flow
-
-```
-POST /api/bookings
-    │
-    ├─→ bookings/validator.js (input validation)
-    ├─→ bookings/controller.js (request handling)
-    ├─→ bookings/service.js (business logic)
-    │       ├─→ events/service.js (track event)
-    │       └─→ mock-api/service.js (create job)
-    └─→ APIResponse wrapper (format response)
-```
-
-## Example Usage
-
-### Create Booking
+Required environment variables (see `.env.example`):
 
 ```bash
-curl -X POST http://localhost:3000/api/bookings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customerName": "John Smith",
-    "customerEmail": "john@example.com",
-    "customerPhone": "+15551234567",
-    "address": {
-      "street": "123 Main St",
-      "city": "Los Angeles",
-      "state": "CA",
-      "zipCode": "90001"
-    },
-    "serviceType": "repair",
-    "preferredDateTime": "2025-11-15T14:00:00Z",
-    "notes": "Garage door making noise"
-  }'
+# Server
+NODE_ENV=development
+PORT=3000
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=a1_garage_dev
+DB_USER=postgres
+DB_PASSWORD=password
+
+# Database Pool
+DB_POOL_MIN=2
+DB_POOL_MAX=10
+DB_POOL_IDLE=10000
+DB_POOL_ACQUIRE=60000
+
+# Authentication
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=7d
+
+# External APIs
+SERVICETITAN_API_KEY=your-api-key
+SERVICETITAN_TENANT_ID=your-tenant-id
+GA4_MEASUREMENT_ID=your-ga4-id
+GA4_API_SECRET=your-ga4-secret
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "message": "Booking created successfully",
-  "data": {
-    "booking": {
-      "id": "BK-1761813248656-26n83rs6g",
-      "customerName": "John Smith",
-      "customerEmail": "john@example.com",
-      "serviceType": "repair",
-      "status": "pending",
-      "createdAt": "2025-10-30T08:34:08.656Z"
-    },
-    "serviceTitanJobId": "ST-1761813248959-6FY290",
-    "confirmationMessage": "Booking BK-... created successfully"
-  }
-}
-```
+## 📊 Development Workflow
 
-### View Events
+### Adding New Features
+1. Create database migration if needed
+2. Create/update models
+3. Create module with routes, controller, service
+4. Add validation schemas
+5. Update documentation
+6. Run tests
 
+### Database Changes
+1. Create migration: `npx sequelize-cli migration:generate --name feature-name`
+2. Run migration: `npm run db:migrate`
+3. Update models and associations
+
+## 🛡️ Security Features
+
+- **Helmet**: Security headers
+- **CORS**: Cross-origin resource sharing
+- **Rate Limiting**: API rate limiting
+- **Input Validation**: Joi schema validation
+- **SQL Injection Prevention**: Sequelize parameterized queries
+- **Password Hashing**: bcrypt with salt rounds
+
+## 🔄 Planned Integrations
+
+### ServiceTitan API
+- Job creation and management
+- Customer synchronization
+- Schedule management
+
+### Scheduling Pro API
+- Available time slots
+- Appointment booking
+- Calendar integration
+
+### Klaviyo API
+- Email notifications
+- Customer segmentation
+- Marketing automation
+
+### SMS Provider
+- Booking confirmations
+- Appointment reminders
+- Status updates
+
+### Analytics
+- Google Analytics 4
+- Meta Pixel
+- Google Ads conversion tracking
+- VWO A/B testing
+
+## 🐳 Docker Setup
+
+### Services Available
+- **postgres**: Main database (port 5432)
+- **postgres-test**: Test database (port 5433)
+- **adminer**: Web database interface (port 8080)
+
+### Docker Commands
 ```bash
-curl http://localhost:3000/api/events/stats
+# Start all services
+docker-compose up -d
+
+# Start only database
+docker-compose up -d postgres
+
+# View database in browser
+open http://localhost:8080
+# Server: postgres, User: postgres, Password: password
 ```
 
-Response:
-```json
-{
-  "success": true,
-  "data": {
-    "totalEvents": 2,
-    "eventsByType": {
-      "booking_created": 1,
-      "servicetitan_api_called": 1
-    },
-    "recentEvents": [...]
-  }
-}
-```
+## 📈 Monitoring and Health
 
-## Architecture
-
-### Modular Design
-
-Each module follows a consistent structure:
-- `routes.js` - Endpoint definitions
-- `controller.js` - Request/response handling
-- `service.js` - Business logic
-- `validator.js` - Input validation (where applicable)
-
-### Response Format
-
-All responses use a standardized format via `APIResponse` wrapper:
-
-**Success:**
-```json
-{
-  "success": true,
-  "message": "...",
-  "data": {...},
-  "timestamp": "2025-10-30T08:34:08.960Z"
-}
-```
-
-**Error:**
-```json
-{
-  "success": false,
-  "message": "...",
-  "error": {
-    "code": "ERROR_CODE",
-    "details": [...]
-  },
-  "timestamp": "2025-10-30T08:34:08.960Z"
-}
-```
-
-### Event Storage
-
-Events are stored in `events.json` with the following structure:
-```json
-{
-  "id": "EVT-...",
-  "name": "event_name",
-  "data": {...},
-  "timestamp": "...",
-  "session": {
-    "userAgent": "...",
-    "ip": "..."
-  }
-}
-```
-
-## Validation Rules
-
-### Booking
-- `customerName`: 2-100 characters
-- `customerEmail`: Valid email format
-- `customerPhone`: E.164 format (e.g., +15551234567)
-- `address.state`: 2-letter state code
-- `address.zipCode`: 5-digit or 9-digit ZIP
-- `serviceType`: repair | installation | maintenance | inspection
-- `preferredDateTime`: ISO 8601 date, must be in future
-
-## Error Handling
-
-All errors are handled by centralized middleware:
-- Validation errors return 400
-- Not found errors return 404
-- Server errors return 500
-- All errors include error codes for client handling
-
-## Development Notes
-
-### Pilot Limitations
-- No database (events stored in JSON file)
-- Mock API only (no real ServiceTitan integration)
-- No authentication/authorization
-- In-memory data (resets on restart)
-
-### Production Considerations
-- Add PostgreSQL/MongoDB for persistence
-- Implement real ServiceTitan API integration
-- Add authentication with JWT
-- Add rate limiting
-- Add comprehensive logging
-- Add automated tests
-- Add API documentation (Swagger)
-
-## Technology Stack
-
-- **Runtime**: Node.js v18+
-- **Framework**: Express.js v4.x
-- **Validation**: Joi
-- **Security**: Helmet, CORS
-- **Logging**: Morgan
-
-## File Size Policy
-
-All files are kept under 200 lines following single responsibility principle. Large modules are split into separate files for maintainability.
-
-## Scripts
-
+### Health Check
 ```bash
-npm start      # Start server
-npm run dev    # Start with auto-reload (nodemon)
+curl http://localhost:3000/health
 ```
+
+### Database Health
+- Automatic connection health checks
+- Connection pool monitoring
+- Graceful shutdown with connection cleanup
+
+## 🧪 Testing and Development
+
+### Scripts
+```bash
+npm start              # Production start
+npm run dev           # Development with auto-reload
+npm run db:migrate    # Run database migrations
+npm run db:seed       # Seed development data
+```
+
+### Development Database
+- Automatic table creation via migrations
+- Seed data for development
+- Separate test database available
+
+## 📋 Production Considerations
+
+### Database
+- Connection pooling configured
+- SSL support for production
+- Migration-based schema management
+- Backup and restore procedures needed
+
+### Security
+- Environment-based configuration
+- Secrets management
+- Rate limiting and DDoS protection
+- Regular security updates
+
+### Performance
+- Database indexing
+- Connection pool optimization
+- Response compression
+- Caching strategy (Redis recommended)
+
+### Monitoring
+- Application logging
+- Database performance monitoring
+- Error tracking and alerting
+- Health check endpoints
+
+## 📚 Documentation
+
+- `DATABASE_SETUP.md` - Database setup guide
+- `DEVELOPMENT.md` - Development workflow and patterns
+
+## 🤝 Development Standards
+
+- **CommonJS modules** (`require/module.exports`)
+- **Modular architecture** with clear separation of concerns
+- **Consistent error handling** with custom error classes
+- **Standardized API responses** with success/error format
+- **Input validation** on all endpoints
+- **Database migrations** for all schema changes
+
+## 📞 Support
+
+For setup issues or questions:
+1. Check `DATABASE_SETUP.md` for database troubleshooting
+2. Review `DEVELOPMENT.md` for development patterns
+3. Check Docker logs: `docker-compose logs postgres`
+
+---
+
+## 🏗️ Built With
+
+- **Node.js** v18+ - Runtime environment
+- **Express.js** v4.x - Web framework
+- **PostgreSQL** v14+ - Database
+- **Sequelize** v6+ - ORM
+- **Docker** - Containerization
+- **Joi** - Input validation
+- **bcrypt** - Password hashing
+- **JWT** - Authentication tokens

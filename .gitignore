@@ -1,5 +1,7 @@
 node_modules/
 .env
+.env.local
+.env.production
 *.log
 .DS_Store
 coverage/
@@ -7,3 +9,25 @@ dist/
 .claude/
 llm/
 CHANGELOG.md
+
+# Database files
+*.sqlite
+*.db
+
+# Docker volumes
+postgres_data/
+
+# Test files
+test-db.js
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+.env.*
+!.env.example

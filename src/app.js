@@ -7,8 +7,6 @@ const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import routes
-const bookingRoutes = require('./modules/bookings/routes');
-const mockApiRoutes = require('./modules/mock-api/routes');
 const eventRoutes = require('./modules/events/routes');
 
 /**
@@ -44,8 +42,6 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/mock', mockApiRoutes);
 app.use('/api/events', eventRoutes);
 
 // 404 handler
