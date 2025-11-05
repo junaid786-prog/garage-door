@@ -9,24 +9,27 @@ const config = {
     port: process.env.DB_PORT || 5432,
     dialect: 'postgres',
     dialectOptions: {
-      ssl: process.env.DB_SSL === 'true' ? {
-        require: true,
-        rejectUnauthorized: false
-      } : false
+      ssl:
+        process.env.DB_SSL === 'true'
+          ? {
+              require: true,
+              rejectUnauthorized: false,
+            }
+          : false,
     },
     pool: {
       min: parseInt(process.env.DB_POOL_MIN) || 2,
       max: parseInt(process.env.DB_POOL_MAX) || 10,
       idle: parseInt(process.env.DB_POOL_IDLE) || 10000,
       acquire: parseInt(process.env.DB_POOL_ACQUIRE) || 60000,
-      evict: 1000
+      evict: 1000,
     },
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     define: {
       underscored: true,
       timestamps: true,
-      paranoid: false
-    }
+      paranoid: false,
+    },
   },
   test: {
     username: process.env.DB_USER || 'postgres',
@@ -39,8 +42,8 @@ const config = {
     define: {
       underscored: true,
       timestamps: true,
-      paranoid: false
-    }
+      paranoid: false,
+    },
   },
   production: {
     username: process.env.DB_USER,
@@ -52,23 +55,23 @@ const config = {
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+      },
     },
     pool: {
       min: parseInt(process.env.DB_POOL_MIN) || 2,
       max: parseInt(process.env.DB_POOL_MAX) || 10,
       idle: parseInt(process.env.DB_POOL_IDLE) || 10000,
       acquire: parseInt(process.env.DB_POOL_ACQUIRE) || 60000,
-      evict: 1000
+      evict: 1000,
     },
     logging: false,
     define: {
       underscored: true,
       timestamps: true,
-      paranoid: false
-    }
-  }
+      paranoid: false,
+    },
+  },
 };
 
 module.exports = config[process.env.NODE_ENV || 'development'];

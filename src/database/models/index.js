@@ -7,19 +7,14 @@ const basename = path.basename(__filename);
 const models = {};
 
 const loadModels = () => {
-  const files = fs.readdirSync(__dirname)
-    .filter(file => {
-      return (
-        file.indexOf('.') !== 0 &&
-        file !== basename &&
-        file.slice(-3) === '.js'
-      );
-    });
+  const files = fs.readdirSync(__dirname).filter((file) => {
+    return file.indexOf('.') !== 0 && file !== basename && file.slice(-3) === '.js';
+  });
 
-  files.forEach(file => {
+  files.forEach((file) => {
     try {
       const model = require(path.join(__dirname, file));
-      
+
       if (model && model.name) {
         models[model.name] = model;
       }
@@ -28,7 +23,7 @@ const loadModels = () => {
     }
   });
 
-  Object.keys(models).forEach(modelName => {
+  Object.keys(models).forEach((modelName) => {
     if (models[modelName].associate) {
       models[modelName].associate(models);
     }

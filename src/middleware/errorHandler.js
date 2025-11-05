@@ -8,23 +8,16 @@ const APIResponse = require('../utils/response');
  * @param {Response} res
  * @param {NextFunction} next
  */
-const errorHandler = (err, req, res, next) => {
+const errorHandler = (err, _req, res, _next) => {
   console.error('Error:', err);
 
   // Operational errors (known errors)
   if (err.isOperational) {
-    return APIResponse.error(
-      res,
-      err.message,
-      err.status,
-      err.code
-    );
+    return APIResponse.error(res, err.message, err.status, err.code);
   }
 
   // Unknown errors - don't leak details
-  const message = process.env.NODE_ENV === 'production'
-    ? 'Internal server error'
-    : err.message;
+  const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
 
   return APIResponse.serverError(res, message);
 };

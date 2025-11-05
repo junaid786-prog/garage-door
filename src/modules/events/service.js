@@ -22,7 +22,8 @@ class EventService {
     try {
       const data = await fs.readFile(this.eventsFile, 'utf-8');
       this.events = JSON.parse(data);
-    } catch (error) {
+    } catch (_error) {
+      console.log(_error);
       // File doesn't exist yet, start with empty array
       this.events = [];
     }
@@ -53,7 +54,7 @@ class EventService {
     this.events.push(event);
 
     // Persist to file (async, non-blocking)
-    this._persistEvents().catch(err => {
+    this._persistEvents().catch((err) => {
       console.error('Failed to persist events:', err);
     });
 
@@ -72,19 +73,19 @@ class EventService {
 
     // Filter by event name
     if (filters.name) {
-      filteredEvents = filteredEvents.filter(e => e.name === filters.name);
+      filteredEvents = filteredEvents.filter((e) => e.name === filters.name);
     }
 
     // Filter by date range
     if (filters.startDate) {
       filteredEvents = filteredEvents.filter(
-        e => new Date(e.timestamp) >= new Date(filters.startDate)
+        (e) => new Date(e.timestamp) >= new Date(filters.startDate)
       );
     }
 
     if (filters.endDate) {
       filteredEvents = filteredEvents.filter(
-        e => new Date(e.timestamp) <= new Date(filters.endDate)
+        (e) => new Date(e.timestamp) <= new Date(filters.endDate)
       );
     }
 
@@ -110,7 +111,7 @@ class EventService {
     };
 
     // Count events by type
-    this.events.forEach(event => {
+    this.events.forEach((event) => {
       stats.eventsByType[event.name] = (stats.eventsByType[event.name] || 0) + 1;
     });
 
@@ -123,11 +124,7 @@ class EventService {
    */
   async _persistEvents() {
     try {
-      await fs.writeFile(
-        this.eventsFile,
-        JSON.stringify(this.events, null, 2),
-        'utf-8'
-      );
+      await fs.writeFile(this.eventsFile, JSON.stringify(this.events, null, 2), 'utf-8');
     } catch (error) {
       console.error('Error persisting events:', error);
     }

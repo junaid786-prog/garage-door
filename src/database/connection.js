@@ -12,7 +12,7 @@ const sequelize = new Sequelize(
     dialectOptions: databaseConfig.dialectOptions,
     pool: databaseConfig.pool,
     logging: databaseConfig.logging,
-    define: databaseConfig.define
+    define: databaseConfig.define,
   }
 );
 
@@ -20,12 +20,12 @@ const connectDB = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ PostgreSQL database connected successfully');
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.log(`📊 Connected to database: ${databaseConfig.database}`);
       console.log(`🔗 Host: ${databaseConfig.host}:${databaseConfig.port}`);
     }
-    
+
     return sequelize;
   } catch (error) {
     console.error('❌ Unable to connect to the database:', error);
@@ -38,7 +38,7 @@ const syncDatabase = async (force = false) => {
     if (process.env.NODE_ENV === 'production' && force) {
       throw new Error('Cannot force sync in production. Use migrations instead.');
     }
-    
+
     await sequelize.sync({ force });
     console.log(`✅ Database synced${force ? ' (forced)' : ''}`);
   } catch (error) {

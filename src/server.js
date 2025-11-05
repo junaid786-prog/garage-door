@@ -32,28 +32,30 @@ const startServer = async () => {
   }
 };
 
-startServer().then(server => {
-  /**
-   * Graceful shutdown
-   */
-  process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, shutting down gracefully...');
-    server.close(async () => {
-      await closeDB();
-      console.log('Server and database closed');
-      process.exit(0);
+startServer()
+  .then((server) => {
+    /**
+     * Graceful shutdown
+     */
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, shutting down gracefully...');
+      server.close(async () => {
+        await closeDB();
+        console.log('Server and database closed');
+        process.exit(0);
+      });
     });
-  });
 
-  process.on('SIGINT', async () => {
-    console.log('\nSIGINT received, shutting down gracefully...');
-    server.close(async () => {
-      await closeDB();
-      console.log('Server and database closed');
-      process.exit(0);
+    process.on('SIGINT', () => {
+      console.log('\nSIGINT received, shutting down gracefully...');
+      server.close(async () => {
+        await closeDB();
+        console.log('Server and database closed');
+        process.exit(0);
+      });
     });
+  })
+  .catch((error) => {
+    console.error('❌ Failed to start application:', error);
+    process.exit(1);
   });
-}).catch(error => {
-  console.error('❌ Failed to start application:', error);
-  process.exit(1);
-});
