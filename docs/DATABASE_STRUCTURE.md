@@ -1,11 +1,13 @@
 # Database Structure - A1 Garage Booking System
 
 ## Overview
+
 PostgreSQL database designed for high-volume booking operations with proper indexing and partitioning for millions of records.
 
 ## Core Tables
 
 ### customers
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 first_name      VARCHAR(100) NOT NULL
@@ -22,6 +24,7 @@ INDEX idx_customers_phone (phone)
 ```
 
 ### service_areas
+
 ```sql
 id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
 zip_code    VARCHAR(10) NOT NULL UNIQUE
@@ -36,6 +39,7 @@ INDEX idx_service_areas_active (active)
 ```
 
 ### bookings
+
 ```sql
 id                  UUID PRIMARY KEY DEFAULT gen_random_uuid()
 customer_id         UUID NOT NULL REFERENCES customers(id)
@@ -63,6 +67,7 @@ INDEX idx_bookings_preferred_time (preferred_time)
 ```
 
 ### time_slots
+
 ```sql
 id              UUID PRIMARY KEY DEFAULT gen_random_uuid()
 service_area_id UUID NOT NULL REFERENCES service_areas(id)
@@ -80,6 +85,7 @@ UNIQUE (service_area_id, slot_date, slot_time)
 ```
 
 ### notifications
+
 ```sql
 id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
 booking_id  UUID NOT NULL REFERENCES bookings(id)
@@ -97,6 +103,7 @@ INDEX idx_notifications_created (created_at)
 ```
 
 ### queue_jobs
+
 ```sql
 id          UUID PRIMARY KEY DEFAULT gen_random_uuid()
 queue_name  VARCHAR(50) NOT NULL
@@ -120,6 +127,7 @@ INDEX idx_queue_jobs_scheduled (scheduled_at)
 ```
 
 ### analytics_events
+
 ```sql
 id           UUID PRIMARY KEY DEFAULT gen_random_uuid()
 booking_id   UUID REFERENCES bookings(id)
@@ -141,6 +149,7 @@ INDEX idx_analytics_events_session (session_id)
 ## Partitioning Strategy
 
 ### bookings Table Partitioning
+
 ```sql
 -- Monthly partitions for performance
 CREATE TABLE bookings_2024_11 PARTITION OF bookings
@@ -151,6 +160,7 @@ CREATE TABLE bookings_2024_12 PARTITION OF bookings
 ```
 
 ### analytics_events Partitioning
+
 ```sql
 -- Weekly partitions for high-volume analytics
 CREATE TABLE analytics_events_2024_w45 PARTITION OF analytics_events
@@ -160,6 +170,7 @@ CREATE TABLE analytics_events_2024_w45 PARTITION OF analytics_events
 ## Performance Optimizations
 
 ### Connection Pooling
+
 ```javascript
 // Sequelize configuration
 {
@@ -173,12 +184,14 @@ CREATE TABLE analytics_events_2024_w45 PARTITION OF analytics_events
 ```
 
 ### Key Indexes
+
 - **bookings**: customer_id, status, created_at (composite)
 - **time_slots**: service_area_id + slot_date (composite)
 - **queue_jobs**: status + priority (composite)
 - **analytics_events**: session_id + created_at (composite)
 
 ### Query Optimization
+
 - Use EXPLAIN ANALYZE for slow queries
 - Materialized views for reporting
 - Read replicas for analytics queries
@@ -187,25 +200,30 @@ CREATE TABLE analytics_events_2024_w45 PARTITION OF analytics_events
 ## Data Retention Policy
 
 ### Short-term (30 days)
+
 - queue_jobs (completed/failed)
 - analytics_events (raw events)
 
 ### Medium-term (1 year)
+
 - time_slots (past dates)
 - notifications (sent/failed)
 
 ### Long-term (7 years)
+
 - bookings (legal compliance)
 - customers (business records)
 
 ## Backup Strategy
 
 ### Daily Backups
+
 - Full database backup (compressed)
 - Transaction log shipping
 - Point-in-time recovery capability
 
 ### Testing
+
 - Monthly restore tests
 - Disaster recovery procedures
 - Data integrity checks

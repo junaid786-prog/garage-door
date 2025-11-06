@@ -19,11 +19,13 @@
 ## Data Flow
 
 ### Synchronous Path (User Response)
+
 ```
 User Request → Validation → Slot Reserve → Booking ID → Response (< 500ms)
 ```
 
 ### Asynchronous Path (Background)
+
 ```
 Booking Created → Queue Jobs → External APIs → Notifications → Analytics
 ```
@@ -31,6 +33,7 @@ Booking Created → Queue Jobs → External APIs → Notifications → Analytics
 ## Technology Stack
 
 ### Backend
+
 - **Runtime**: Node.js with Express.js
 - **Database**: PostgreSQL with Sequelize ORM
 - **Cache**: Redis for sessions, slots, rate limiting
@@ -38,6 +41,7 @@ Booking Created → Queue Jobs → External APIs → Notifications → Analytics
 - **Auth**: JWT tokens
 
 ### External Integrations
+
 - **ServiceTitan**: Job management system
 - **Scheduling Pro**: Time slot availability
 - **Klaviyo**: Email automation
@@ -60,6 +64,7 @@ src/modules/
 ## Database Schema
 
 ### Core Tables
+
 - `bookings` - Main booking records
 - `customers` - Customer information
 - `time_slots` - Available appointments
@@ -67,6 +72,7 @@ src/modules/
 - `queue_jobs` - Job tracking
 
 ### Relationships
+
 ```
 customers 1:n bookings
 bookings 1:1 time_slots
@@ -76,6 +82,7 @@ service_areas 1:n bookings
 ## Queue Architecture
 
 ### Job Types
+
 1. **booking-processing** (Priority: Critical)
    - ServiceTitan job creation
    - Slot confirmation
@@ -95,17 +102,20 @@ service_areas 1:n bookings
 ## Scalability Features
 
 ### Horizontal Scaling
+
 - Stateless API servers
 - Load balancer ready
 - Database read replicas
 
 ### Performance Optimizations
+
 - Connection pooling
 - Query optimization
 - Response caching
 - CDN integration
 
 ### Monitoring
+
 - API response times
 - Queue health
 - Database performance
@@ -114,18 +124,21 @@ service_areas 1:n bookings
 ## Security Architecture
 
 ### Data Protection
+
 - HTTPS enforcement
 - Input sanitization
 - SQL injection prevention
 - XSS protection
 
 ### Access Control
+
 - Rate limiting per IP
 - API key management
 - Request validation
 - Error message sanitization
 
 ### Compliance
+
 - TCPA for SMS opt-ins
 - PII data handling
 - Audit logging
@@ -134,6 +147,7 @@ service_areas 1:n bookings
 ## Usage Guide
 
 ### System Startup
+
 ```javascript
 // src/server.js
 const { connectRedis } = require('./config/redis');
@@ -144,6 +158,7 @@ await workerManager.startWorkers();
 ```
 
 ### Caching Usage
+
 ```javascript
 const cacheService = require('./config/cache');
 
@@ -157,29 +172,32 @@ if (!limit.allowed) return res.status(429).json({ error: 'Rate limited' });
 ```
 
 ### Queue Usage
+
 ```javascript
 const queueManager = require('./config/queue');
 
 // Immediate response pattern
 app.post('/bookings', async (req, res) => {
   const booking = await createBooking(req.body);
-  
+
   // Queue background jobs
   await queueManager.addBookingJob('create-servicetitan-job', booking, 'critical');
   await queueManager.addNotificationJob('send-confirmation', confirmationData);
   await queueManager.addAnalyticsJob('track-conversion', analyticsData);
-  
+
   res.json({ bookingId: booking.id, status: 'confirmed' });
 });
 ```
 
 ### Queue Priorities
+
 - **Critical**: ServiceTitan jobs (instant)
 - **High**: Email/SMS (< 1min)
 - **Medium**: Data sync (< 5min)
 - **Low**: Analytics (< 10min)
 
 ### Monitoring
+
 ```javascript
 const stats = await queueManager.getAllQueueStats();
 const health = await cacheService.getStats();

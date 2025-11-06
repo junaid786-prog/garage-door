@@ -5,10 +5,12 @@
 The fastest way to get started is using Docker Compose:
 
 ### Prerequisites
+
 - Docker and Docker Compose installed
 - No need to install PostgreSQL separately
 
 ### Quick Start
+
 ```bash
 # 1. Start PostgreSQL with Docker Compose
 docker-compose up -d postgres
@@ -27,6 +29,7 @@ npm run db:test
 ```
 
 ### Available Services
+
 ```bash
 # Start all services (PostgreSQL + Adminer web interface)
 docker-compose up -d
@@ -48,8 +51,9 @@ docker-compose down -v
 ```
 
 ### Database Access
+
 - **Main Database**: `localhost:5432` (a1_garage_dev)
-- **Test Database**: `localhost:5433` (a1_garage_test)  
+- **Test Database**: `localhost:5433` (a1_garage_test)
 - **Web Interface**: http://localhost:8080 (Adminer)
   - Server: `postgres`
   - Username: `postgres`
@@ -59,6 +63,7 @@ docker-compose down -v
 ## Alternative Installation Methods
 
 ### Option 1: Install PostgreSQL with Homebrew (macOS)
+
 ```bash
 # Install PostgreSQL
 brew install postgresql@14
@@ -71,6 +76,7 @@ createuser -s postgres
 ```
 
 ### Option 2: Manual Docker Run
+
 ```bash
 # Run PostgreSQL in Docker
 docker run -d \
@@ -83,16 +89,19 @@ docker run -d \
 ```
 
 ### Option 3: Download from PostgreSQL website
+
 Visit https://www.postgresql.org/download/ and follow instructions for your OS.
 
 ## Database Setup
 
 1. **Create .env file** (if not exists):
+
 ```bash
 cp .env.example .env
 ```
 
 2. **Update .env with your database credentials**:
+
 ```env
 DB_HOST=localhost
 DB_PORT=5432
@@ -102,16 +111,19 @@ DB_PASSWORD=password
 ```
 
 3. **Create the database**:
+
 ```bash
 npm run db:create
 ```
 
 4. **Run migrations**:
+
 ```bash
 npm run db:migrate
 ```
 
 5. **Test the connection**:
+
 ```bash
 npm run db:test
 ```
@@ -154,17 +166,21 @@ docker-compose start postgres        # Start stopped PostgreSQL
 ## Troubleshooting
 
 ### Connection Refused Error
+
 **For Docker setup:**
+
 - Check if containers are running: `docker-compose ps`
 - View container logs: `docker-compose logs postgres`
 - Restart containers: `docker-compose restart postgres`
 
 **For local PostgreSQL:**
+
 - Ensure PostgreSQL is running: `brew services list`
 - Check if PostgreSQL is listening: `lsof -i :5432`
 - Verify credentials in .env file
 
 ### Container Health Issues
+
 ```bash
 # Check container health
 docker-compose ps
@@ -178,22 +194,28 @@ docker-compose up -d postgres
 ```
 
 ### Authentication Failed
+
 - Check username and password in .env
 - For Docker: credentials are set in docker-compose.yml
 - For local development, you might need to trust local connections:
   Edit `pg_hba.conf` and set method to `trust` for local connections
 
 ### Database Does Not Exist
+
 **For Docker:**
+
 - Database is created automatically on first run
 - If needed, recreate: `docker-compose down -v && docker-compose up -d postgres`
 
 **For local PostgreSQL:**
+
 - Run `npm run db:create` to create the database
 - Or manually create: `createdb a1_garage_dev`
 
 ### Port Already in Use
+
 If port 5432 is occupied:
+
 ```bash
 # Find what's using the port
 lsof -i :5432

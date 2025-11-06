@@ -1,4 +1,13 @@
-node_modules/
+/.prettierrc
+/.prettierrc.*
+/.prettierrc.json
+/.prettierrc.yaml
+/.prettierrc.yml
+/.prettierrc.js
+/.prettierrc.cjs
+/.prettierrc.mjs
+.prettierrc
+.prettierrc.*node_modules/
 dist/
 build/
 coverage/

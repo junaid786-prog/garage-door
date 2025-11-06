@@ -3,7 +3,9 @@
 ## Architecture Overview
 
 ### Modular Structure
+
 Each feature is organized as a self-contained module with:
+
 ```
 src/modules/{module-name}/
 ├── {module}.controller.js   # Business logic & request handling
@@ -13,6 +15,7 @@ src/modules/{module-name}/
 ```
 
 ### Core Components
+
 ```
 src/
 ├── app.js                   # Express app configuration
@@ -37,6 +40,7 @@ src/
 ## Development Workflow
 
 ### 1. Create Database Model
+
 - Define Sequelize model in `src/database/models/`
 - Create migration file for schema changes
 - Add indexes in migration for frequently queried fields
@@ -44,51 +48,57 @@ src/
 - Define associations with other models
 
 **Example:**
+
 ```javascript
 // src/database/models/Booking.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../connection');
 
-const Booking = sequelize.define('Booking', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true,
+const Booking = sequelize.define(
+  'Booking',
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    customerName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: { len: [2, 100] },
+    },
+    customerEmail: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: { isEmail: true },
+    },
+    serviceType: {
+      type: DataTypes.ENUM('repair', 'installation', 'maintenance'),
+      allowNull: false,
+    },
   },
-  customerName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: { len: [2, 100] },
-  },
-  customerEmail: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: { isEmail: true },
-  },
-  serviceType: {
-    type: DataTypes.ENUM('repair', 'installation', 'maintenance'),
-    allowNull: false,
-  },
-}, {
-  timestamps: true,
-  underscored: true,
-  indexes: [
-    { fields: ['customer_email'] },
-    { fields: ['service_type'] },
-  ],
-});
+  {
+    timestamps: true,
+    underscored: true,
+    indexes: [{ fields: ['customer_email'] }, { fields: ['service_type'] }],
+  }
+);
 
-Booking.prototype.getFormattedDate = function() { /* ... */ };
+Booking.prototype.getFormattedDate = function () {
+  /* ... */
+};
 
 module.exports = Booking;
 ```
 
 ### 2. Create Validation Schemas
+
 - Define Joi schemas in `{module}.validation.js`
 - One schema per endpoint/action
 - Include custom error messages
 
 **Example:**
+
 ```javascript
 // src/modules/auth/auth.validation.js
 const Joi = require('joi');
@@ -102,12 +112,14 @@ module.exports = { registerSchema };
 ```
 
 ### 3. Create Controller
+
 - Business logic in `{module}.controller.js`
 - Use async/await (express-async-errors handles errors)
 - Throw custom errors from `utils/errors.js`
 - Return consistent JSON response format
 
 **Example:**
+
 ```javascript
 // src/modules/bookings/bookings.controller.js
 const Booking = require('../../database/models/Booking');
@@ -116,10 +128,10 @@ const { ConflictError } = require('../../utils/errors');
 const createBooking = async (req, res) => {
   const { customerName, customerEmail, serviceType } = req.body;
 
-  const booking = await Booking.create({ 
-    customerName, 
-    customerEmail, 
-    serviceType 
+  const booking = await Booking.create({
+    customerName,
+    customerEmail,
+    serviceType,
   });
 
   res.status(201).json({
@@ -133,11 +145,13 @@ module.exports = { createBooking };
 ```
 
 ### 4. Create Routes
+
 - Define routes in `{module}.routes.js`
 - Apply middleware (validate, authenticate, authorize)
 - Export router
 
 **Example:**
+
 ```javascript
 // src/modules/bookings/bookings.routes.js
 const express = require('express');
@@ -155,10 +169,12 @@ module.exports = router;
 ```
 
 ### 5. Register Routes in App
+
 - Import routes in `src/app.js`
 - Mount under `/api/{module-name}`
 
 **Example:**
+
 ```javascript
 // src/app.js
 const bookingRoutes = require('./modules/bookings/bookings.routes');
@@ -169,15 +185,19 @@ app.use('/api/bookings', bookingRoutes);
 ## Response Format
 
 ### Success Response
+
 ```json
 {
   "success": true,
   "message": "Optional message",
-  "data": { /* response data */ }
+  "data": {
+    /* response data */
+  }
 }
 ```
 
 ### Error Response
+
 ```json
 {
   "success": false,
@@ -189,6 +209,7 @@ app.use('/api/bookings', bookingRoutes);
 ## Middleware Usage
 
 ### Authentication
+
 ```javascript
 const { authenticate, authorize, checkPermissions } = require('../../middleware/auth');
 
@@ -206,6 +227,7 @@ router.post('/create', authenticate, checkPermissions('create:campaign'), contro
 ```
 
 ### Validation
+
 ```javascript
 const { validate } = require('../../middleware/validate');
 const { createSchema } = require('./validation');
@@ -216,14 +238,15 @@ router.post('/create', validate(createSchema), controller.create);
 ## Error Handling
 
 ### Custom Errors
+
 ```javascript
 import {
-  ValidationError,    // 400
-  UnauthorizedError,  // 401
-  ForbiddenError,     // 403
-  NotFoundError,      // 404
-  ConflictError,      // 409
-  AppError            // Custom status code
+  ValidationError, // 400
+  UnauthorizedError, // 401
+  ForbiddenError, // 403
+  NotFoundError, // 404
+  ConflictError, // 409
+  AppError, // Custom status code
 } from '../utils/errors.js';
 
 // Usage
@@ -232,6 +255,7 @@ throw new AppError('Custom error', 418);
 ```
 
 ### Error Flow
+
 1. Throw error in controller
 2. `express-async-errors` catches async errors
 3. `errorHandler` middleware formats response
@@ -240,10 +264,11 @@ throw new AppError('Custom error', 418);
 ## Database Patterns
 
 ### Query Patterns
+
 ```javascript
 // Find with conditions
-const users = await User.findAll({ 
-  where: { role: 'admin', status: 'active' } 
+const users = await User.findAll({
+  where: { role: 'admin', status: 'active' },
 });
 
 // Find one
@@ -256,17 +281,14 @@ const user = await User.findByPk(id);
 const user = await User.create({ email, password });
 
 // Update and return new
-const [rowsUpdated, [user]] = await User.update(
-  { name },
-  { where: { id }, returning: true }
-);
+const [rowsUpdated, [user]] = await User.update({ name }, { where: { id }, returning: true });
 
 // Delete (soft delete if paranoid: true)
 await User.destroy({ where: { id } });
 
 // Eager loading (joins)
 const campaign = await Campaign.findByPk(id, {
-  include: [{ model: Advertiser, as: 'advertiser' }]
+  include: [{ model: Advertiser, as: 'advertiser' }],
 });
 
 // Transactions
@@ -282,6 +304,7 @@ try {
 ```
 
 ### Denormalization Strategy
+
 - Store frequently accessed foreign IDs directly (e.g., `advertiserId` in impressions)
 - Reduces joins for high-volume queries
 - Trade-off: data consistency vs performance
@@ -289,6 +312,7 @@ try {
 ## Environment Variables
 
 Create `.env` file from `.env.example`:
+
 ```bash
 NODE_ENV=development
 PORT=3000
@@ -348,6 +372,7 @@ npm run test:watch
 ## Testing Endpoints
 
 ### Register User
+
 ```bash
 curl -X POST http://localhost:3000/api/auth/register \
   -H "Content-Type: application/json" \
@@ -364,6 +389,7 @@ curl -X POST http://localhost:3000/api/auth/register \
 ```
 
 ### Login
+
 ```bash
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
@@ -374,6 +400,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 ```
 
 ### Protected Route
+
 ```bash
 curl -X GET http://localhost:3000/api/auth/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
@@ -382,12 +409,14 @@ curl -X GET http://localhost:3000/api/auth/profile \
 ## Code Style
 
 ### Naming Conventions
+
 - Files: `kebab-case.js`
 - Variables/Functions: `camelCase`
 - Classes/Models: `PascalCase`
 - Constants: `UPPER_SNAKE_CASE`
 
 ### Import Order
+
 ```javascript
 // 1. External packages
 const express = require('express');
@@ -402,6 +431,7 @@ const { helperFunction } = require('./helpers');
 ```
 
 ### Always Use
+
 - CommonJS modules (`require/module.exports`)
 - `async/await` (not callbacks)
 - Arrow functions where appropriate
@@ -411,6 +441,7 @@ const { helperFunction } = require('./helpers');
 ## Common Patterns
 
 ### Associations & Query Optimization
+
 ```javascript
 // Define associations
 Campaign.belongsTo(Advertiser, { foreignKey: 'advertiserId' });
@@ -420,42 +451,46 @@ Impression.belongsTo(Placement, { foreignKey: 'placementId' });
 // Efficient querying with includes
 const impressions = await Impression.findAll({
   include: [
-    { 
+    {
       model: Campaign,
       attributes: ['id', 'name', 'advertiserId'],
-      include: [{ 
-        model: Advertiser, 
-        attributes: ['id', 'name'] 
-      }]
+      include: [
+        {
+          model: Advertiser,
+          attributes: ['id', 'name'],
+        },
+      ],
     },
-    { 
+    {
       model: Placement,
-      attributes: ['id', 'name', 'publisherId']
-    }
+      attributes: ['id', 'name', 'publisherId'],
+    },
   ],
   where: { createdAt: { [Op.gte]: startDate } },
   limit: 100,
 });
 
 // For high-volume queries, consider raw SQL
-const results = await sequelize.query(
-  'SELECT * FROM impressions WHERE created_at >= :date',
-  { 
-    replacements: { date: startDate },
-    type: QueryTypes.SELECT 
-  }
-);
+const results = await sequelize.query('SELECT * FROM impressions WHERE created_at >= :date', {
+  replacements: { date: startDate },
+  type: QueryTypes.SELECT,
+});
 ```
 
 ### Soft Delete Pattern
+
 ```javascript
 // Model definition with paranoid: true
-const Campaign = sequelize.define('Campaign', {
-  // ... fields
-}, {
-  paranoid: true, // adds deletedAt field automatically
-  timestamps: true,
-});
+const Campaign = sequelize.define(
+  'Campaign',
+  {
+    // ... fields
+  },
+  {
+    paranoid: true, // adds deletedAt field automatically
+    timestamps: true,
+  }
+);
 
 // Soft delete
 await Campaign.destroy({ where: { id } });
@@ -471,6 +506,7 @@ await Campaign.restore({ where: { id } });
 ```
 
 ### Pagination Pattern
+
 ```javascript
 const listCampaigns = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
@@ -503,9 +539,10 @@ module.exports = { listCampaigns };
 ## Next Steps
 
 ### Implementation Milestones (Nov 5 - Dec 4)
+
 1. ⏳ **Milestone 1**: Architecture & Review (Nov 5 - $500)
 2. 🔄 **Milestone 2**: ServiceTitan API Integration (Nov 10 - $1,000)
-3. 🔄 **Milestone 3**: Scheduling Pro Integration (Nov 13 - $1,000) 
+3. 🔄 **Milestone 3**: Scheduling Pro Integration (Nov 13 - $1,000)
 4. 🔄 **Milestone 4**: Klaviyo/SMS Integration (Nov 17 - $800)
 5. 🔄 **Milestone 5**: Core Booking Flow Frontend (Nov 24 - $1,500)
 6. 🔄 **Milestone 6**: Tracking & Analytics (Nov 27 - $1,000)
@@ -513,6 +550,7 @@ module.exports = { listCampaigns };
 8. 🔄 **Milestone 8**: Deployment & Handoff (Dec 4 - $800)
 
 ### Development Workflow for Each Module
+
 1. Create API integration service(s) in `src/services/`
 2. Create validation schemas for booking flow
 3. Create controller with booking orchestration logic
@@ -523,8 +561,9 @@ module.exports = { listCampaigns };
 8. Test integration endpoints
 
 ### Key Integrations
+
 - **ServiceTitan API**: Job/lead creation
-- **Scheduling Pro API**: Available time slots  
+- **Scheduling Pro API**: Available time slots
 - **Klaviyo API**: Email confirmations
 - **SMS Provider**: Text confirmations
 - **Analytics**: GA4, Meta Pixel, Google Ads, VWO
