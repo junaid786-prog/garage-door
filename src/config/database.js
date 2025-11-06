@@ -10,13 +10,12 @@ const config = {
     port: env.DB_PORT,
     dialect: 'postgres',
     dialectOptions: {
-      ssl:
-        env.DB_SSL
-          ? {
-              require: true,
-              rejectUnauthorized: false,
-            }
-          : false,
+      ssl: env.DB_SSL
+        ? {
+            require: true,
+            rejectUnauthorized: false,
+          }
+        : false,
     },
     pool: {
       min: env.DB_POOL_MIN,

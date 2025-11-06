@@ -13,8 +13,9 @@ class RedisConnection {
     }
 
     try {
-      const isCloudRedis = env.REDIS_URL || (env.REDIS_HOST && !env.REDIS_HOST.includes('localhost'));
-      
+      const isCloudRedis =
+        env.REDIS_URL || (env.REDIS_HOST && !env.REDIS_HOST.includes('localhost'));
+
       const redisConfig = {
         host: env.REDIS_HOST,
         port: env.REDIS_PORT,
@@ -24,7 +25,6 @@ class RedisConnection {
         enableReadyCheck: true,
         maxRetriesPerRequest: 5,
         retryDelayOnClusterDown: 300,
-        maxRetriesPerRequest: null,
         lazyConnect: true,
         connectTimeout: 60000,
         commandTimeout: 30000,
@@ -33,14 +33,14 @@ class RedisConnection {
         // Cloud Redis specific settings
         ...(isCloudRedis && {
           tls: {
-            rejectUnauthorized: false
+            rejectUnauthorized: false,
           },
           connectTimeout: 60000,
           lazyConnect: true,
           maxRetriesPerRequest: null,
           retryDelayOnFailover: 1000,
           enableOfflineQueue: false,
-        })
+        }),
       };
 
       // Use Redis URL if provided (common for cloud providers)
@@ -52,8 +52,8 @@ class RedisConnection {
           retryDelayOnFailover: 1000,
           enableOfflineQueue: false,
           tls: {
-            rejectUnauthorized: false
-          }
+            rejectUnauthorized: false,
+          },
         });
       } else {
         this.client = new Redis(redisConfig);

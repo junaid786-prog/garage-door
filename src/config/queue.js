@@ -4,10 +4,10 @@ const env = require('./env');
 class QueueManager {
   constructor() {
     this.queues = {};
-    
+
     // Check if using cloud Redis (Upstash or similar)
     const isCloudRedis = env.REDIS_URL || (env.REDIS_HOST && !env.REDIS_HOST.includes('localhost'));
-    
+
     this.redisConfig = {
       redis: {
         port: env.REDIS_PORT,
@@ -22,9 +22,9 @@ class QueueManager {
         // Add TLS for cloud Redis providers
         ...(isCloudRedis && {
           tls: {
-            rejectUnauthorized: false
-          }
-        })
+            rejectUnauthorized: false,
+          },
+        }),
       },
     };
 
@@ -42,9 +42,9 @@ class QueueManager {
           retryDelayOnFailover: 1000,
           enableOfflineQueue: true,
           tls: {
-            rejectUnauthorized: false
-          }
-        }
+            rejectUnauthorized: false,
+          },
+        },
       };
     }
   }
@@ -56,20 +56,20 @@ class QueueManager {
       const queueSettings = {
         ...this.redisConfig,
         settings: {
-          stalledInterval: 60 * 1000,     // Check for stalled jobs every 60s (vs 30s default)
-          maxStalledCount: 1,             // Max stalled count before failed
-          retryProcessDelay: 5000,        // Delay before retrying failed process
+          stalledInterval: 60 * 1000, // Check for stalled jobs every 60s (vs 30s default)
+          maxStalledCount: 1, // Max stalled count before failed
+          retryProcessDelay: 5000, // Delay before retrying failed process
           backoffStrategies: {},
-          delayedDebounce: 5000,         // Debounce delayed jobs (5s vs 1s default)
-        }
+          delayedDebounce: 5000, // Debounce delayed jobs (5s vs 1s default)
+        },
       };
-      
+
       this.queues[queueName] = new Queue(queueName, queueSettings);
 
       // Queue event handlers
       this.queues[queueName].on('error', (error) => {
         console.log(error);
-        
+
         console.error(`❌ Queue ${queueName} error:`, error.message);
       });
 

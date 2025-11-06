@@ -20,7 +20,9 @@ class WorkerManager {
 
     // In development, only start workers if NODE_ENV is production or explicitly enabled
     if (!env.ENABLE_QUEUE_WORKERS) {
-      console.log('🔇 Queue workers disabled in development. Set ENABLE_QUEUE_WORKERS=true to enable.');
+      console.log(
+        '🔇 Queue workers disabled in development. Set ENABLE_QUEUE_WORKERS=true to enable.'
+      );
       this.isRunning = false;
       return;
     }
