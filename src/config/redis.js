@@ -12,22 +12,51 @@ class RedisConnection {
     }
 
     try {
+      const isCloudRedis = process.env.REDIS_URL || (process.env.REDIS_HOST && !process.env.REDIS_HOST.includes('localhost'));
+      
       const redisConfig = {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD || undefined,
         db: parseInt(process.env.REDIS_DB || '0'),
-        retryDelayOnFailover: 100,
+        retryDelayOnFailover: 500,
         enableReadyCheck: true,
-        maxRetriesPerRequest: 3,
+        maxRetriesPerRequest: 5,
+        retryDelayOnClusterDown: 300,
+        maxRetriesPerRequest: null,
         lazyConnect: true,
-        connectTimeout: 10000,
-        commandTimeout: 5000,
+        connectTimeout: 60000,
+        commandTimeout: 30000,
         family: 4,
         keepAlive: 30000,
+        // Cloud Redis specific settings
+        ...(isCloudRedis && {
+          tls: {
+            rejectUnauthorized: false
+          },
+          connectTimeout: 60000,
+          lazyConnect: true,
+          maxRetriesPerRequest: null,
+          retryDelayOnFailover: 1000,
+          enableOfflineQueue: false,
+        })
       };
 
-      this.client = new Redis(redisConfig);
+      // Use Redis URL if provided (common for cloud providers)
+      if (process.env.REDIS_URL) {
+        this.client = new Redis(process.env.REDIS_URL, {
+          connectTimeout: 60000,
+          lazyConnect: true,
+          maxRetriesPerRequest: null,
+          retryDelayOnFailover: 1000,
+          enableOfflineQueue: false,
+          tls: {
+            rejectUnauthorized: false
+          }
+        });
+      } else {
+        this.client = new Redis(redisConfig);
+      }
 
       this.client.on('connect', () => {
         console.log('✅ Redis connected successfully');

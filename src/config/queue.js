@@ -3,14 +3,49 @@ const Queue = require('bull');
 class QueueManager {
   constructor() {
     this.queues = {};
+    
+    // Check if using cloud Redis (Upstash or similar)
+    const isCloudRedis = process.env.REDIS_URL || (process.env.REDIS_HOST && !process.env.REDIS_HOST.includes('localhost'));
+    
     this.redisConfig = {
       redis: {
-        port: process.env.REDIS_PORT || 6379,
+        port: parseInt(process.env.REDIS_PORT || '6379'),
         host: process.env.REDIS_HOST || 'localhost',
         password: process.env.REDIS_PASSWORD || undefined,
         db: parseInt(process.env.REDIS_QUEUE_DB || '1'),
+        connectTimeout: 60000,
+        lazyConnect: false,
+        maxRetriesPerRequest: 3,
+        retryDelayOnFailover: 1000,
+        enableOfflineQueue: true,
+        // Add TLS for cloud Redis providers
+        ...(isCloudRedis && {
+          tls: {
+            rejectUnauthorized: false
+          }
+        })
       },
     };
+
+    // Use Redis URL if provided (for cloud providers like Upstash)
+    if (process.env.REDIS_URL) {
+      this.redisConfig = {
+        redis: {
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          host: process.env.REDIS_HOST || 'localhost',
+          password: process.env.REDIS_PASSWORD || undefined,
+          db: parseInt(process.env.REDIS_QUEUE_DB || '0'),
+          connectTimeout: 60000,
+          lazyConnect: false,
+          maxRetriesPerRequest: 3,
+          retryDelayOnFailover: 1000,
+          enableOfflineQueue: true,
+          tls: {
+            rejectUnauthorized: false
+          }
+        }
+      };
+    }
   }
 
   // Create or get existing queue
@@ -20,6 +55,8 @@ class QueueManager {
 
       // Queue event handlers
       this.queues[queueName].on('error', (error) => {
+        console.log(error);
+        
         console.error(`❌ Queue ${queueName} error:`, error.message);
       });
 
