@@ -1,16 +1,17 @@
 require('dotenv').config();
+const env = require('./env');
 
 const config = {
   development: {
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME || 'a1_garage_dev',
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
+    username: env.DB_USER,
+    password: env.DB_PASSWORD,
+    database: env.DB_NAME,
+    host: env.DB_HOST,
+    port: env.DB_PORT,
     dialect: 'postgres',
     dialectOptions: {
       ssl:
-        process.env.DB_SSL === 'true'
+        env.DB_SSL
           ? {
               require: true,
               rejectUnauthorized: false,
@@ -18,13 +19,13 @@ const config = {
           : false,
     },
     pool: {
-      min: parseInt(process.env.DB_POOL_MIN) || 2,
-      max: parseInt(process.env.DB_POOL_MAX) || 10,
-      idle: parseInt(process.env.DB_POOL_IDLE) || 10000,
-      acquire: parseInt(process.env.DB_POOL_ACQUIRE) || 60000,
+      min: env.DB_POOL_MIN,
+      max: env.DB_POOL_MAX,
+      idle: env.DB_POOL_IDLE,
+      acquire: env.DB_POOL_ACQUIRE,
       evict: 1000,
     },
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: env.NODE_ENV === 'development' ? console.log : false,
     define: {
       underscored: true,
       timestamps: true,
@@ -32,11 +33,11 @@ const config = {
     },
   },
   test: {
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME_TEST || 'a1_garage_test',
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
+    username: env.DB_USER,
+    password: env.DB_PASSWORD,
+    database: env.DB_NAME_TEST,
+    host: env.DB_HOST,
+    port: env.DB_PORT,
     dialect: 'postgres',
     logging: false,
     define: {
@@ -46,11 +47,11 @@ const config = {
     },
   },
   production: {
-    username: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 5432,
+    username: env.DB_USER,
+    password: env.DB_PASSWORD,
+    database: env.DB_NAME,
+    host: env.DB_HOST,
+    port: env.DB_PORT,
     dialect: 'postgres',
     dialectOptions: {
       ssl: {
@@ -59,10 +60,10 @@ const config = {
       },
     },
     pool: {
-      min: parseInt(process.env.DB_POOL_MIN) || 2,
-      max: parseInt(process.env.DB_POOL_MAX) || 10,
-      idle: parseInt(process.env.DB_POOL_IDLE) || 10000,
-      acquire: parseInt(process.env.DB_POOL_ACQUIRE) || 60000,
+      min: env.DB_POOL_MIN,
+      max: env.DB_POOL_MAX,
+      idle: env.DB_POOL_IDLE,
+      acquire: env.DB_POOL_ACQUIRE,
       evict: 1000,
     },
     logging: false,
@@ -74,5 +75,5 @@ const config = {
   },
 };
 
-module.exports = config[process.env.NODE_ENV || 'development'];
+module.exports = config[env.NODE_ENV];
 module.exports.config = config;

@@ -1,14 +1,15 @@
 require('dotenv').config();
+const env = require('./env');
 
 /**
  * Application configuration
  */
 const config = {
-  port: process.env.PORT || 3000,
-  env: process.env.NODE_ENV || 'development',
+  port: env.PORT,
+  env: env.NODE_ENV,
 
   cors: {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: env.CORS_ORIGIN,
   },
 };
 

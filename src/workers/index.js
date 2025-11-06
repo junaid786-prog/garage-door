@@ -3,6 +3,7 @@ const bookingWorkers = require('./booking.workers');
 const notificationWorkers = require('./notification.workers');
 const analyticsWorkers = require('./analytics.workers');
 const integrationWorkers = require('./integration.workers');
+const env = require('../config/env');
 
 class WorkerManager {
   constructor() {
@@ -18,7 +19,7 @@ class WorkerManager {
     }
 
     // In development, only start workers if NODE_ENV is production or explicitly enabled
-    if (!process.env.ENABLE_QUEUE_WORKERS) {
+    if (!env.ENABLE_QUEUE_WORKERS) {
       console.log('🔇 Queue workers disabled in development. Set ENABLE_QUEUE_WORKERS=true to enable.');
       this.isRunning = false;
       return;

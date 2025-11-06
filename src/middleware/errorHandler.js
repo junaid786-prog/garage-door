@@ -1,4 +1,5 @@
 const APIResponse = require('../utils/response');
+const env = require('../config/env');
 
 /**
  * Global error handler middleware
@@ -17,7 +18,7 @@ const errorHandler = (err, _req, res, _next) => {
   }
 
   // Unknown errors - don't leak details
-  const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
+  const message = env.NODE_ENV === 'production' ? 'Internal server error' : err.message;
 
   return APIResponse.serverError(res, message);
 };

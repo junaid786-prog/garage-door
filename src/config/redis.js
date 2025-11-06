@@ -1,4 +1,5 @@
 const Redis = require('ioredis');
+const env = require('./env');
 
 class RedisConnection {
   constructor() {
@@ -12,13 +13,13 @@ class RedisConnection {
     }
 
     try {
-      const isCloudRedis = process.env.REDIS_URL || (process.env.REDIS_HOST && !process.env.REDIS_HOST.includes('localhost'));
+      const isCloudRedis = env.REDIS_URL || (env.REDIS_HOST && !env.REDIS_HOST.includes('localhost'));
       
       const redisConfig = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        password: process.env.REDIS_PASSWORD || undefined,
-        db: parseInt(process.env.REDIS_DB || '0'),
+        host: env.REDIS_HOST,
+        port: env.REDIS_PORT,
+        password: env.REDIS_PASSWORD,
+        db: env.REDIS_DB,
         retryDelayOnFailover: 500,
         enableReadyCheck: true,
         maxRetriesPerRequest: 5,
@@ -43,8 +44,8 @@ class RedisConnection {
       };
 
       // Use Redis URL if provided (common for cloud providers)
-      if (process.env.REDIS_URL) {
-        this.client = new Redis(process.env.REDIS_URL, {
+      if (env.REDIS_URL) {
+        this.client = new Redis(env.REDIS_URL, {
           connectTimeout: 60000,
           lazyConnect: true,
           maxRetriesPerRequest: null,

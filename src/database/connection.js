@@ -1,5 +1,6 @@
 const { Sequelize } = require('sequelize');
 const databaseConfig = require('../config/database');
+const env = require('../config/env');
 
 const sequelize = new Sequelize(
   databaseConfig.database,
@@ -21,7 +22,7 @@ const connectDB = async () => {
     await sequelize.authenticate();
     console.log('✅ PostgreSQL database connected successfully');
 
-    if (process.env.NODE_ENV === 'development') {
+    if (env.NODE_ENV === 'development') {
       console.log(`📊 Connected to database: ${databaseConfig.database}`);
       console.log(`🔗 Host: ${databaseConfig.host}:${databaseConfig.port}`);
     }
@@ -35,7 +36,7 @@ const connectDB = async () => {
 
 const syncDatabase = async (force = false) => {
   try {
-    if (process.env.NODE_ENV === 'production' && force) {
+    if (env.NODE_ENV === 'production' && force) {
       throw new Error('Cannot force sync in production. Use migrations instead.');
     }
 

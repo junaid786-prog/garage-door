@@ -1,18 +1,19 @@
 const Queue = require('bull');
+const env = require('./env');
 
 class QueueManager {
   constructor() {
     this.queues = {};
     
     // Check if using cloud Redis (Upstash or similar)
-    const isCloudRedis = process.env.REDIS_URL || (process.env.REDIS_HOST && !process.env.REDIS_HOST.includes('localhost'));
+    const isCloudRedis = env.REDIS_URL || (env.REDIS_HOST && !env.REDIS_HOST.includes('localhost'));
     
     this.redisConfig = {
       redis: {
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-        host: process.env.REDIS_HOST || 'localhost',
-        password: process.env.REDIS_PASSWORD || undefined,
-        db: parseInt(process.env.REDIS_QUEUE_DB || '1'),
+        port: env.REDIS_PORT,
+        host: env.REDIS_HOST,
+        password: env.REDIS_PASSWORD,
+        db: env.REDIS_QUEUE_DB,
         connectTimeout: 60000,
         lazyConnect: false,
         maxRetriesPerRequest: 3,
@@ -28,13 +29,13 @@ class QueueManager {
     };
 
     // Use Redis URL if provided (for cloud providers like Upstash)
-    if (process.env.REDIS_URL) {
+    if (env.REDIS_URL) {
       this.redisConfig = {
         redis: {
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-          host: process.env.REDIS_HOST || 'localhost',
-          password: process.env.REDIS_PASSWORD || undefined,
-          db: parseInt(process.env.REDIS_QUEUE_DB || '0'),
+          port: env.REDIS_PORT,
+          host: env.REDIS_HOST,
+          password: env.REDIS_PASSWORD,
+          db: env.REDIS_QUEUE_DB,
           connectTimeout: 60000,
           lazyConnect: false,
           maxRetriesPerRequest: 3,
