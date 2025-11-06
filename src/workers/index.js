@@ -17,20 +17,27 @@ class WorkerManager {
       return;
     }
 
+    // In development, only start workers if NODE_ENV is production or explicitly enabled
+    if (!process.env.ENABLE_QUEUE_WORKERS) {
+      console.log('🔇 Queue workers disabled in development. Set ENABLE_QUEUE_WORKERS=true to enable.');
+      this.isRunning = false;
+      return;
+    }
+
     console.log('🚀 Starting queue workers...');
 
     try {
-      // Start booking workers (3 concurrent)
-      this.startBookingWorkers(3);
+      // Start booking workers (1 concurrent for dev)
+      this.startBookingWorkers(1);
 
-      // Start notification workers (2 concurrent)
-      this.startNotificationWorkers(2);
+      // Start notification workers (1 concurrent for dev)
+      this.startNotificationWorkers(1);
 
       // Start analytics workers (1 concurrent)
       this.startAnalyticsWorkers(1);
 
-      // Start integration workers (2 concurrent)
-      this.startIntegrationWorkers(2);
+      // Start integration workers (1 concurrent for dev)
+      this.startIntegrationWorkers(1);
 
       this.isRunning = true;
       console.log('✅ All queue workers started successfully');

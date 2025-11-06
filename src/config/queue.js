@@ -51,7 +51,19 @@ class QueueManager {
   // Create or get existing queue
   getQueue(queueName) {
     if (!this.queues[queueName]) {
-      this.queues[queueName] = new Queue(queueName, this.redisConfig);
+      // Add settings to reduce Redis polling
+      const queueSettings = {
+        ...this.redisConfig,
+        settings: {
+          stalledInterval: 60 * 1000,     // Check for stalled jobs every 60s (vs 30s default)
+          maxStalledCount: 1,             // Max stalled count before failed
+          retryProcessDelay: 5000,        // Delay before retrying failed process
+          backoffStrategies: {},
+          delayedDebounce: 5000,         // Debounce delayed jobs (5s vs 1s default)
+        }
+      };
+      
+      this.queues[queueName] = new Queue(queueName, queueSettings);
 
       // Queue event handlers
       this.queues[queueName].on('error', (error) => {
