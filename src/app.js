@@ -8,6 +8,8 @@ const errorHandler = require('./middleware/errorHandler');
 
 // Import routes
 const eventRoutes = require('./modules/events/routes');
+const bookingRoutes = require('./modules/bookings/routes');
+const geoRoutes = require('./modules/geo/routes');
 
 /**
  * Create Express application
@@ -43,6 +45,8 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/events', eventRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/geo', geoRoutes);
 
 // 404 handler
 app.use((req, res) => {
