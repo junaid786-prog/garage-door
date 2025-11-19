@@ -136,11 +136,26 @@ const Booking = sequelize.define('Booking', {
     defaultValue: 'pending'
   },
   
-  // External system IDs
+  // External system IDs and status
   serviceTitanJobId: {
-    type: DataTypes.STRING,
+    type: DataTypes.INTEGER,
     allowNull: true,
     field: 'service_titan_job_id'
+  },
+  serviceTitanJobNumber: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    field: 'service_titan_job_number'
+  },
+  serviceTitanStatus: {
+    type: DataTypes.ENUM('scheduled', 'dispatched', 'in_progress', 'completed', 'cancelled', 'failed', 'error'),
+    allowNull: true,
+    field: 'service_titan_status'
+  },
+  serviceTitanError: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'service_titan_error'
   },
   schedulingProJobId: {
     type: DataTypes.STRING,

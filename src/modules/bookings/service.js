@@ -1,5 +1,6 @@
 const Booking = require('../../database/models/Booking');
 const { Op } = require('sequelize');
+const serviceTitanIntegration = require('../integrations/servicetitan/integration');
 
 /**
  * Booking service - handles booking business logic
@@ -18,6 +19,77 @@ class BookingService {
       
       // Create booking in database
       const booking = await Booking.create(flatData);
+
+      // Immediately attempt to create ServiceTitan job
+      // This is synchronous to provide immediate feedback
+      try {
+        // Combine booking database fields with original form data
+        const serviceTitanData = {
+          id: booking.id,
+          // Database fields
+          contactName: booking.contactName,
+          phoneE164: booking.phoneE164,
+          street: booking.street,
+          unit: booking.unit,
+          city: booking.city,
+          state: booking.state,
+          zip: booking.zip,
+          serviceType: booking.serviceType,
+          serviceSymptom: booking.serviceSymptom,
+          doorCount: booking.doorCount,
+          doorAgeBucket: booking.doorAgeBucket,
+          occupancyType: booking.occupancyType,
+          notes: booking.notes,
+          // Original form data for fields not in database
+          ...bookingData,
+        };
+
+        const serviceTitanResult = await serviceTitanIntegration.createJobFromBooking(serviceTitanData);
+
+        if (serviceTitanResult.success) {
+          // Update booking with ServiceTitan job info
+          await booking.update({
+            serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+            serviceTitanJobNumber: serviceTitanResult.jobNumber,
+            serviceTitanStatus: serviceTitanResult.status,
+          });
+
+          console.log('[Booking Service] ServiceTitan job created successfully:', {
+            bookingId: booking.id,
+            serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+            jobNumber: serviceTitanResult.jobNumber,
+          });
+        } else {
+          console.error('[Booking Service] ServiceTitan job creation failed:', {
+            bookingId: booking.id,
+            error: serviceTitanResult.error,
+            shouldRetry: serviceTitanResult.shouldRetry,
+          });
+
+          // Update booking with error status
+          await booking.update({
+            serviceTitanStatus: 'failed',
+            serviceTitanError: serviceTitanResult.error,
+          });
+
+          // If retryable, could queue for background retry here
+          if (serviceTitanResult.shouldRetry) {
+            // TODO: Queue job for retry
+            console.log('[Booking Service] Queuing ServiceTitan job for retry');
+          }
+        }
+      } catch (serviceTitanError) {
+        // Log error but don't fail the booking creation
+        console.error('[Booking Service] ServiceTitan integration error:', {
+          bookingId: booking.id,
+          error: serviceTitanError.message,
+        });
+
+        await booking.update({
+          serviceTitanStatus: 'error',
+          serviceTitanError: serviceTitanError.message,
+        });
+      }
       
       return booking;
     } catch (error) {
@@ -213,6 +285,199 @@ class BookingService {
       return bookings.map(booking => this._transformModelToResponse(booking));
     } catch (error) {
       throw new Error(`Failed to get bookings by phone: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update ServiceTitan job status for a booking
+   * @param {string} bookingId - Booking ID
+   * @param {string} status - New ServiceTitan status
+   * @returns {Promise<Object>} Updated booking
+   */
+  async updateServiceTitanStatus(bookingId, status) {
+    try {
+      const booking = await Booking.findByPk(bookingId);
+      
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      if (!booking.serviceTitanJobId) {
+        throw new Error('No ServiceTitan job ID associated with this booking');
+      }
+
+      // Update status in ServiceTitan
+      const result = await serviceTitanIntegration.updateJobStatus(
+        booking.serviceTitanJobId, 
+        status
+      );
+
+      if (result.success) {
+        // Update booking status
+        await booking.update({
+          serviceTitanStatus: result.status,
+          updatedAt: new Date(),
+        });
+
+        console.log('[Booking Service] ServiceTitan status updated:', {
+          bookingId,
+          serviceTitanJobId: booking.serviceTitanJobId,
+          status: result.status,
+        });
+      } else {
+        console.error('[Booking Service] ServiceTitan status update failed:', {
+          bookingId,
+          serviceTitanJobId: booking.serviceTitanJobId,
+          error: result.error,
+        });
+
+        throw new Error(`ServiceTitan status update failed: ${result.error}`);
+      }
+
+      return this._transformModelToResponse(booking);
+    } catch (error) {
+      throw new Error(`Failed to update ServiceTitan status: ${error.message}`);
+    }
+  }
+
+  /**
+   * Cancel ServiceTitan job for a booking
+   * @param {string} bookingId - Booking ID
+   * @param {string} reason - Cancellation reason
+   * @returns {Promise<Object>} Updated booking
+   */
+  async cancelServiceTitanJob(bookingId, reason = 'Customer cancelled') {
+    try {
+      const booking = await Booking.findByPk(bookingId);
+      
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      if (!booking.serviceTitanJobId) {
+        throw new Error('No ServiceTitan job ID associated with this booking');
+      }
+
+      // Cancel job in ServiceTitan
+      const result = await serviceTitanIntegration.cancelJob(
+        booking.serviceTitanJobId, 
+        reason
+      );
+
+      if (result.success) {
+        // Update booking status
+        await booking.update({
+          status: 'cancelled',
+          serviceTitanStatus: result.status,
+          serviceTitanError: null, // Clear any previous errors
+          updatedAt: new Date(),
+        });
+
+        console.log('[Booking Service] ServiceTitan job cancelled:', {
+          bookingId,
+          serviceTitanJobId: booking.serviceTitanJobId,
+          reason: result.cancellationReason,
+        });
+      } else {
+        console.error('[Booking Service] ServiceTitan job cancellation failed:', {
+          bookingId,
+          serviceTitanJobId: booking.serviceTitanJobId,
+          error: result.error,
+        });
+
+        throw new Error(`ServiceTitan job cancellation failed: ${result.error}`);
+      }
+
+      return this._transformModelToResponse(booking);
+    } catch (error) {
+      throw new Error(`Failed to cancel ServiceTitan job: ${error.message}`);
+    }
+  }
+
+  /**
+   * Retry failed ServiceTitan job creation
+   * @param {string} bookingId - Booking ID
+   * @returns {Promise<Object>} Updated booking
+   */
+  async retryServiceTitanJob(bookingId) {
+    try {
+      const booking = await Booking.findByPk(bookingId);
+      
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      if (booking.serviceTitanJobId) {
+        throw new Error('ServiceTitan job already exists for this booking');
+      }
+
+      // Reconstruct booking data for ServiceTitan
+      const bookingData = this._transformModelToResponse(booking);
+      
+      // Attempt to create ServiceTitan job
+      const result = await serviceTitanIntegration.createJobFromBooking({
+        id: booking.id,
+        ...bookingData,
+      });
+
+      if (result.success) {
+        // Update booking with ServiceTitan job info
+        await booking.update({
+          serviceTitanJobId: result.serviceTitanJobId,
+          serviceTitanJobNumber: result.jobNumber,
+          serviceTitanStatus: result.status,
+          serviceTitanError: null, // Clear any previous errors
+        });
+
+        console.log('[Booking Service] ServiceTitan job retry successful:', {
+          bookingId,
+          serviceTitanJobId: result.serviceTitanJobId,
+          jobNumber: result.jobNumber,
+        });
+      } else {
+        await booking.update({
+          serviceTitanStatus: 'failed',
+          serviceTitanError: result.error,
+        });
+
+        throw new Error(`ServiceTitan job retry failed: ${result.error}`);
+      }
+
+      return this._transformModelToResponse(booking);
+    } catch (error) {
+      throw new Error(`Failed to retry ServiceTitan job: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get ServiceTitan job details for a booking
+   * @param {string} bookingId - Booking ID
+   * @returns {Promise<Object>} ServiceTitan job details
+   */
+  async getServiceTitanJobDetails(bookingId) {
+    try {
+      const booking = await Booking.findByPk(bookingId);
+      
+      if (!booking) {
+        throw new Error('Booking not found');
+      }
+
+      if (!booking.serviceTitanJobId) {
+        throw new Error('No ServiceTitan job ID associated with this booking');
+      }
+
+      const result = await serviceTitanIntegration.getJob(booking.serviceTitanJobId);
+
+      if (!result.success) {
+        throw new Error(`Failed to get ServiceTitan job details: ${result.error}`);
+      }
+
+      return {
+        bookingId,
+        serviceTitan: result.job,
+      };
+    } catch (error) {
+      throw new Error(`Failed to get ServiceTitan job details: ${error.message}`);
     }
   }
 
