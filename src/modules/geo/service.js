@@ -131,6 +131,62 @@ class GeoService {
     };
   }
 
+  /**
+   * Get serviceable ZIP codes for scheduling integration
+   * @returns {Array<string>} List of serviceable ZIP codes
+   */
+  getServiceableZipCodes() {
+    return [
+      '85001', '85002', '85003', '85004', '85005', '85006', '85007', '85008', '85009', '85010',
+      '85251', '85252', '85253', '85254', '85255', '85256', '85257', '85258', '85259', '85260',
+      '85301', '85302', '85303', '85304', '85305', '85306', '85307', '85308', '85309', '85310',
+    ];
+  }
+
+  /**
+   * Validate if ZIP code has scheduling service available
+   * @param {string} zipCode - ZIP code to validate
+   * @returns {Promise<Object>} Scheduling availability validation
+   */
+  async validateSchedulingAvailability(zipCode) {
+    if (!zipCode) {
+      throw new Error('ZIP code is required');
+    }
+
+    const serviceableZips = this.getServiceableZipCodes();
+    const isServiceable = serviceableZips.includes(zipCode);
+    const locationData = await this.getLocationByZip(zipCode);
+
+    return {
+      zipCode,
+      isServiceable,
+      hasScheduling: isServiceable,
+      city: locationData.city,
+      state: locationData.state,
+      timezone: locationData.timezone,
+      message: isServiceable 
+        ? 'Scheduling service available in this area' 
+        : 'Scheduling service not available in this area',
+      serviceHours: isServiceable ? {
+        start: '09:00',
+        end: '17:00',
+        timezone: 'America/Phoenix',
+        weekdays: true,
+        weekends: false
+      } : null,
+    };
+  }
+
+  /**
+   * Get timezone for a ZIP code (used by scheduling service)
+   * @param {string} zipCode - ZIP code
+   * @returns {string} Timezone identifier
+   */
+  getTimezoneForZip(zipCode) {
+    // All Arizona ZIP codes use Phoenix timezone (no daylight saving)
+    return 'America/Phoenix';
+  }
+
   // Private helper methods for dummy data generation
   _getDummyCity(zipCode) {
     const cityMap = {

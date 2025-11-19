@@ -1,6 +1,8 @@
 const Booking = require('../../database/models/Booking');
 const { Op } = require('sequelize');
 const serviceTitanIntegration = require('../integrations/servicetitan/integration');
+const schedulingService = require('../scheduling/service');
+const env = require('../../config/env');
 
 /**
  * Booking service - handles booking business logic
@@ -89,6 +91,43 @@ class BookingService {
           serviceTitanStatus: 'error',
           serviceTitanError: serviceTitanError.message,
         });
+      }
+
+      // Handle slot confirmation if auto-confirm is enabled
+      if (env.SCHEDULING_AUTO_CONFIRM_SLOTS && booking.slotId) {
+        try {
+          console.log('[Booking Service] Auto-confirming reserved slot:', {
+            bookingId: booking.id,
+            slotId: booking.slotId,
+          });
+
+          const confirmResult = await schedulingService.confirmReservedSlot(
+            booking.slotId, 
+            booking.id
+          );
+
+          if (confirmResult.success) {
+            console.log('[Booking Service] Slot confirmed successfully:', {
+              bookingId: booking.id,
+              slotId: booking.slotId,
+            });
+          } else {
+            console.error('[Booking Service] Slot confirmation failed:', {
+              bookingId: booking.id,
+              slotId: booking.slotId,
+              error: confirmResult.error,
+            });
+
+            // Note: We don't fail the booking if slot confirmation fails
+            // The slot might have expired, but the booking is still valid
+          }
+        } catch (slotError) {
+          console.error('[Booking Service] Slot confirmation error:', {
+            bookingId: booking.id,
+            slotId: booking.slotId,
+            error: slotError.message,
+          });
+        }
       }
       
       return booking;

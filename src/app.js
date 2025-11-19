@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errorHandler');
 const eventRoutes = require('./modules/events/routes');
 const bookingRoutes = require('./modules/bookings/routes');
 const geoRoutes = require('./modules/geo/routes');
+const schedulingRoutes = require('./modules/scheduling/routes');
 
 /**
  * Create Express application
@@ -47,6 +48,7 @@ app.get('/health', (req, res) => {
 app.use('/api/events', eventRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/geo', geoRoutes);
+app.use('/api/scheduling', schedulingRoutes);
 
 // 404 handler
 app.use((req, res) => {

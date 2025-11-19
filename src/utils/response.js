@@ -74,6 +74,24 @@ class APIResponse {
   }
 
   /**
+   * Bad request response (400)
+   * @param {Object} res - Express response object
+   * @param {string} message - Error message
+   */
+  static badRequest(res, message = 'Bad request') {
+    return this.error(res, message, 400, 'BAD_REQUEST');
+  }
+
+  /**
+   * Conflict response (409)
+   * @param {Object} res - Express response object
+   * @param {string} message - Error message
+   */
+  static conflict(res, message = 'Conflict') {
+    return this.error(res, message, 409, 'CONFLICT');
+  }
+
+  /**
    * Not found response (404)
    * @param {Object} res - Express response object
    * @param {string} message - Error message
