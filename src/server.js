@@ -3,6 +3,7 @@ const config = require('./config');
 const { connectRedis } = require('./config/redis');
 const { connectDB, closeDB } = require('./database/connection');
 const workerManager = require('./workers');
+const { initializeRateLimiter } = require('./middleware/rateLimiter');
 
 const PORT = config.port;
 
@@ -14,6 +15,10 @@ const startServer = async () => {
     // Connect to database first
     await connectDB();
     await connectRedis();
+
+    // Initialize rate limiter after Redis connection
+    initializeRateLimiter();
+
     await workerManager.startWorkers();
 
     // Then start the server

@@ -6,6 +6,7 @@ const compression = require('compression');
 const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
 const validateApiKey = require('./middleware/apiKeyAuth');
+const { createRateLimiter } = require('./middleware/rateLimiter');
 
 // Import routes
 const eventRoutes = require('./modules/events/routes');
@@ -35,6 +36,10 @@ if (config.env === 'development') {
 } else {
   app.use(morgan('combined'));
 }
+
+// Rate limiting middleware (applied to all routes)
+const rateLimiter = createRateLimiter();
+app.use(rateLimiter);
 
 // Health check endpoint (public - no API key required)
 app.get('/health', (req, res) => {
