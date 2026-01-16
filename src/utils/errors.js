@@ -20,6 +20,15 @@ class ValidationError extends AppError {
 }
 
 /**
+ * Unauthorized error (401)
+ */
+class UnauthorizedError extends AppError {
+  constructor(message = 'Unauthorized') {
+    super(message, 401, 'UNAUTHORIZED');
+  }
+}
+
+/**
  * Not found error (404)
  */
 class NotFoundError extends AppError {
@@ -31,5 +40,6 @@ class NotFoundError extends AppError {
 module.exports = {
   AppError,
   ValidationError,
+  UnauthorizedError,
   NotFoundError,
 };

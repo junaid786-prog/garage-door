@@ -6,6 +6,9 @@ const env = {
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
 
+  // Security
+  API_KEY: process.env.API_KEY,
+
   // Database
   DB_USER: process.env.DB_USER || 'postgres',
   DB_PASSWORD: process.env.DB_PASSWORD || 'password',

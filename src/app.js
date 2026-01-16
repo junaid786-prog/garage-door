@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const compression = require('compression');
 const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
+const validateApiKey = require('./middleware/apiKeyAuth');
 
 // Import routes
 const eventRoutes = require('./modules/events/routes');
@@ -35,7 +36,7 @@ if (config.env === 'development') {
   app.use(morgan('combined'));
 }
 
-// Health check endpoint
+// Health check endpoint (public - no API key required)
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -44,11 +45,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes
-app.use('/api/events', eventRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/geo', geoRoutes);
-app.use('/api/scheduling', schedulingRoutes);
+// API routes (protected with API key)
+app.use('/api/events', validateApiKey, eventRoutes);
+app.use('/api/bookings', validateApiKey, bookingRoutes);
+app.use('/api/geo', validateApiKey, geoRoutes);
+app.use('/api/scheduling', validateApiKey, schedulingRoutes);
 
 // 404 handler
 app.use((req, res) => {
