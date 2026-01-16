@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 CREATE EXTENSION IF NOT EXISTS "btree_gin";
 
 -- Create additional users if needed (optional)
--- CREATE USER app_user WITH PASSWORD 'app_password';
+ALTER USER postgres WITH PASSWORD 'password';
 -- GRANT ALL PRIVILEGES ON DATABASE a1_garage_dev TO app_user;
 
 -- Log successful initialization
