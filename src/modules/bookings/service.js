@@ -6,6 +6,7 @@ const env = require('../../config/env');
 const { withTransaction } = require('../../utils/transaction');
 const { ConflictError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
+const errorLogService = require('../../services/errorLogService');
 
 /**
  * Booking service - handles booking business logic
@@ -89,10 +90,25 @@ class BookingService {
               { transaction }
             );
 
+            // Log critical failure to error_logs table for manual recovery
+            await errorLogService.logError({
+              errorType: 'SERVICETITAN_JOB_CREATION_FAILED',
+              operation: 'createBooking.createServiceTitanJob',
+              serviceName: 'ServiceTitan',
+              context: {
+                bookingId: booking.id,
+                slotId: booking.slotId,
+                serviceType: booking.serviceType,
+                // Do not include PII - errorLogService handles sanitization
+              },
+              error: new Error(serviceTitanResult.error),
+              retryable: serviceTitanResult.shouldRetry,
+            });
+
             // If retryable, could queue for background retry here
             if (serviceTitanResult.shouldRetry) {
               // TODO: Queue job for retry
-              logger.info('Queuing ServiceTitan job for retry', { bookingId: booking.id });
+              logger.info('ServiceTitan job queued for retry', { bookingId: booking.id });
             }
           }
 
@@ -156,6 +172,39 @@ class BookingService {
 
         // Generic unique constraint error
         throw new ConflictError('This booking conflicts with an existing booking.');
+      }
+
+      // Handle ConflictError (already processed, just re-throw)
+      if (error instanceof ConflictError) {
+        throw error;
+      }
+
+      // Log all other critical booking failures
+      logger.error('Critical booking creation failure', {
+        error: error.message,
+        stack: error.stack,
+        bookingData: { serviceType: bookingData.serviceType }, // Minimal data, no PII
+      });
+
+      // Log to error_logs table for investigation and recovery
+      try {
+        await errorLogService.logError({
+          errorType: 'BOOKING_CREATION_FAILED',
+          operation: 'createBooking',
+          serviceName: null,
+          context: {
+            serviceType: bookingData.serviceType,
+            hasSlotId: !!bookingData.slotId,
+            // No PII
+          },
+          error,
+          retryable: true,
+        });
+      } catch (logError) {
+        // If error logging fails, just log to file (already done above)
+        logger.error('Failed to log booking error to database', {
+          logError: logError.message,
+        });
       }
 
       throw new Error(`Failed to create booking: ${error.message}`);

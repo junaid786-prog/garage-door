@@ -9,10 +9,12 @@ const { createRateLimiter } = require('./middleware/rateLimiter');
 const { getMorganMiddleware } = require('./config/morgan');
 
 // Import routes
+const healthRoutes = require('./modules/health/routes');
 const eventRoutes = require('./modules/events/routes');
 const bookingRoutes = require('./modules/bookings/routes');
 const geoRoutes = require('./modules/geo/routes');
 const schedulingRoutes = require('./modules/scheduling/routes');
+const errorRecoveryRoutes = require('./modules/admin/errorRecoveryRoutes');
 
 /**
  * Create Express application
@@ -37,20 +39,17 @@ app.use(getMorganMiddleware(config.env));
 const rateLimiter = createRateLimiter();
 app.use(rateLimiter);
 
-// Health check endpoint (public - no API key required)
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    env: config.env,
-  });
-});
+// Health Check endpoints (public - no API key required)
+app.use('/health', healthRoutes);
 
 // API routes (protected with API key)
 app.use('/api/events', validateApiKey, eventRoutes);
 app.use('/api/bookings', validateApiKey, bookingRoutes);
 app.use('/api/geo', validateApiKey, geoRoutes);
 app.use('/api/scheduling', validateApiKey, schedulingRoutes);
+
+// Admin routes (protected with API key - should add role-based auth in production)
+app.use('/admin/errors', validateApiKey, errorRecoveryRoutes);
 
 // 404 handler
 app.use((req, res) => {
