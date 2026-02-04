@@ -1,19 +1,20 @@
 const schedulingProIntegration = require('../integrations/schedulingpro/integration');
 const geoService = require('../geo/service'); // Will enhance this
 const env = require('../../config/env');
+const reservationService = require('../../services/reservationService');
 
 /**
  * Scheduling service - handles scheduling business logic with caching and reservations
  */
 class SchedulingService {
   constructor() {
-    // In-memory cache for demo (replace with Redis in production)
+    // In-memory cache for slots (Redis used for reservations)
     this.slotsCache = new Map();
-    this.reservationsCache = new Map();
 
     // Configuration from environment
     this.cacheTimeout = env.SCHEDULING_CACHE_TTL_MINUTES * 60 * 1000; // Convert to milliseconds
     this.reservationTimeout = env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES;
+    this.reservationTimeoutSeconds = env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES * 60; // Convert to seconds for Redis
     this.autoConfirmSlots = env.SCHEDULING_AUTO_CONFIRM_SLOTS;
   }
 
@@ -131,14 +132,18 @@ class SchedulingService {
    */
   async reserveSlot(slotId, bookingId, customerInfo = {}) {
     try {
-      // Check if slot is already reserved in our cache
-      const existingReservation = this.reservationsCache.get(slotId);
-      if (existingReservation && existingReservation.expiresAt > new Date()) {
+      // Check if slot is already reserved in Redis
+      const reservationCheck = await reservationService.isReserved(slotId);
+
+      // If Redis is degraded, continue with SchedulingPro check only
+      if (reservationCheck.degraded) {
+        console.log('[Scheduling Service] Redis degraded, using SchedulingPro only');
+      } else if (reservationCheck.isReserved) {
         return {
           success: false,
-          error: `Slot is already reserved until ${existingReservation.expiresAt.toISOString()}`,
+          error: `Slot is already reserved until ${reservationCheck.reservation.expiresAt}`,
           slotId,
-          reservedBy: existingReservation.bookingId,
+          reservedBy: reservationCheck.reservation.bookingId,
         };
       }
 
@@ -158,29 +163,21 @@ class SchedulingService {
         };
       }
 
-      // Store reservation in our cache
-      const reservation = {
+      // Store reservation in Redis with TTL (automatic cleanup)
+      const redisResult = await reservationService.reserveSlot(
         slotId,
         bookingId,
-        customerInfo,
-        reservedAt: result.reservation.reservedAt,
-        expiresAt: result.reservation.expiresAt,
-        slot: result.slot,
-      };
-
-      this.reservationsCache.set(slotId, reservation);
-
-      // Set timeout to clean up expired reservation
-      setTimeout(
-        () => {
-          const current = this.reservationsCache.get(slotId);
-          if (current && current.expiresAt <= new Date()) {
-            this.reservationsCache.delete(slotId);
-            console.log(`[Scheduling Service] Reservation expired and cleaned up: ${slotId}`);
-          }
+        {
+          customerInfo,
+          slot: result.slot,
         },
-        this.reservationTimeout * 60 * 1000
+        this.reservationTimeoutSeconds
       );
+
+      // If Redis reservation failed but SchedulingPro succeeded, log warning but continue
+      if (!redisResult.success && !redisResult.degraded) {
+        console.log(`[Scheduling Service] Warning: Redis reservation failed but SchedulingPro succeeded for slot: ${slotId}`);
+      }
 
       console.log(
         `[Scheduling Service] Slot reserved: ${slotId} for ${this.reservationTimeout} minutes`
@@ -189,13 +186,13 @@ class SchedulingService {
       return {
         success: true,
         reservation: {
-          slotId: reservation.slotId,
-          bookingId: reservation.bookingId,
-          reservedAt: reservation.reservedAt,
-          expiresAt: reservation.expiresAt,
+          slotId,
+          bookingId,
+          reservedAt: result.reservation.reservedAt,
+          expiresAt: result.reservation.expiresAt,
           reservationMinutes: this.reservationTimeout,
         },
-        slot: reservation.slot,
+        slot: result.slot,
       };
     } catch (error) {
       console.error('[Scheduling Service] Reservation error:', {
@@ -220,39 +217,37 @@ class SchedulingService {
    */
   async confirmReservedSlot(slotId, bookingId) {
     try {
-      // Check our reservation cache
-      const reservation = this.reservationsCache.get(slotId);
-      if (!reservation) {
-        return {
-          success: false,
-          error: `No reservation found for slot: ${slotId}`,
-          slotId,
-        };
-      }
+      // Verify reservation in Redis
+      const verifyResult = await reservationService.verifyReservation(slotId, bookingId);
 
-      if (reservation.bookingId !== bookingId) {
+      // If Redis is degraded, skip verification and proceed with SchedulingPro
+      if (verifyResult.degraded) {
+        console.log('[Scheduling Service] Redis degraded, proceeding with SchedulingPro confirmation only');
+      } else if (!verifyResult.valid) {
         return {
           success: false,
-          error: `Booking ID mismatch for slot: ${slotId}`,
+          error: verifyResult.error || `Invalid reservation for slot: ${slotId}`,
           slotId,
         };
-      }
-
-      if (reservation.expiresAt <= new Date()) {
-        this.reservationsCache.delete(slotId);
-        return {
-          success: false,
-          error: `Reservation expired for slot: ${slotId}`,
-          slotId,
-        };
+      } else {
+        // Check if reservation expired
+        const expiresAt = new Date(verifyResult.reservation.expiresAt);
+        if (expiresAt <= new Date()) {
+          await reservationService.releaseSlot(slotId);
+          return {
+            success: false,
+            error: `Reservation expired for slot: ${slotId}`,
+            slotId,
+          };
+        }
       }
 
       // Confirm with SchedulingPro
       const result = await schedulingProIntegration.confirmSlot(slotId, bookingId);
 
       if (result.success) {
-        // Remove from reservations cache (now it's confirmed)
-        this.reservationsCache.delete(slotId);
+        // Remove from Redis reservations (now it's confirmed)
+        await reservationService.releaseSlot(slotId);
 
         // Invalidate slots cache for this area
         this._invalidateSlotsCacheForSlot(slotId);
@@ -284,10 +279,10 @@ class SchedulingService {
    */
   async cancelSlot(slotId, bookingId) {
     try {
-      // Remove from our reservations cache
-      const reservation = this.reservationsCache.get(slotId);
-      if (reservation && reservation.bookingId === bookingId) {
-        this.reservationsCache.delete(slotId);
+      // Remove from Redis reservations
+      const verifyResult = await reservationService.verifyReservation(slotId, bookingId);
+      if (verifyResult.valid) {
+        await reservationService.releaseSlot(slotId);
       }
 
       // Cancel with SchedulingPro
@@ -366,42 +361,55 @@ class SchedulingService {
 
   /**
    * Get current reservations (for admin/debugging)
-   * @returns {Array} Current reservations
+   * @returns {Promise<Array>} Current reservations
    */
-  getCurrentReservations() {
-    const reservations = [];
-    for (const [slotId, reservation] of this.reservationsCache.entries()) {
-      reservations.push({
-        slotId,
-        bookingId: reservation.bookingId,
-        reservedAt: reservation.reservedAt,
-        expiresAt: reservation.expiresAt,
-        expired: reservation.expiresAt <= new Date(),
-      });
+  async getCurrentReservations() {
+    try {
+      const result = await reservationService.getAllReservations();
+      if (!result.success) {
+        console.error('[Scheduling Service] Failed to get reservations:', result.error);
+        return [];
+      }
+
+      // Format for compatibility with existing code
+      return result.reservations.map((r) => ({
+        slotId: r.slotId,
+        bookingId: r.bookingId,
+        reservedAt: r.reservedAt,
+        expiresAt: r.expiresAt,
+        expired: new Date(r.expiresAt) <= new Date(),
+        ttlSeconds: r.ttlSeconds,
+      }));
+    } catch (error) {
+      console.error('[Scheduling Service] Get reservations error:', error.message);
+      return [];
     }
-    return reservations;
   }
 
   /**
    * Clear expired reservations (cleanup job)
-   * @returns {number} Number of expired reservations cleaned up
+   * Note: Redis TTL handles automatic cleanup, this is for monitoring
+   * @returns {Promise<number>} Number of expired reservations being cleaned up
    */
-  cleanupExpiredReservations() {
-    let cleaned = 0;
-    const now = new Date();
-
-    for (const [slotId, reservation] of this.reservationsCache.entries()) {
-      if (reservation.expiresAt <= now) {
-        this.reservationsCache.delete(slotId);
-        cleaned++;
+  async cleanupExpiredReservations() {
+    try {
+      const result = await reservationService.cleanupExpired();
+      if (!result.success) {
+        console.error('[Scheduling Service] Cleanup check failed:', result.error);
+        return 0;
       }
-    }
 
-    if (cleaned > 0) {
-      console.log(`[Scheduling Service] Cleaned up ${cleaned} expired reservations`);
-    }
+      if (result.cleaned > 0) {
+        console.log(
+          `[Scheduling Service] ${result.cleaned} reservations expiring soon (Redis TTL handles cleanup)`
+        );
+      }
 
-    return cleaned;
+      return result.cleaned || 0;
+    } catch (error) {
+      console.error('[Scheduling Service] Cleanup error:', error.message);
+      return 0;
+    }
   }
 
   // Private helper methods

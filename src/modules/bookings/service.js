@@ -132,12 +132,27 @@ class BookingService {
     } catch (error) {
       // Handle unique constraint violation (double-booking)
       if (error instanceof UniqueConstraintError) {
+        // Log the error fields for debugging
+        console.log('[Booking Service] Unique constraint error:', {
+          fields: error.fields,
+          message: error.message,
+          parent: error.parent?.detail
+        });
+
         // Check if it's the slot_id constraint
         if (error.fields && error.fields.slot_id) {
           throw new ConflictError(
             'This time slot is no longer available. Please select a different time slot.'
           );
         }
+
+        // Check if it's the service_titan_job_id constraint
+        if (error.fields && error.fields.service_titan_job_id) {
+          throw new ConflictError(
+            'ServiceTitan job ID conflict. Please try again.'
+          );
+        }
+
         // Generic unique constraint error
         throw new ConflictError('This booking conflicts with an existing booking.');
       }

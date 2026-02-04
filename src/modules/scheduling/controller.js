@@ -160,7 +160,7 @@ class SchedulingController {
    */
   async getCurrentReservations(req, res, next) {
     try {
-      const reservations = service.getCurrentReservations();
+      const reservations = await service.getCurrentReservations();
 
       return APIResponse.success(
         res,
@@ -185,7 +185,7 @@ class SchedulingController {
    */
   async cleanupExpiredReservations(req, res, next) {
     try {
-      const cleaned = service.cleanupExpiredReservations();
+      const cleaned = await service.cleanupExpiredReservations();
 
       return APIResponse.success(
         res,
@@ -212,7 +212,7 @@ class SchedulingController {
       const health = await schedulingProIntegration.getHealthStatus();
 
       // Add our service layer stats
-      const reservations = service.getCurrentReservations();
+      const reservations = await service.getCurrentReservations();
 
       const response = {
         ...health,

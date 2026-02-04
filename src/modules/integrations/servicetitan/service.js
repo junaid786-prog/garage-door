@@ -1,4 +1,5 @@
 const env = require('../../../config/env');
+const { Booking } = require('../../../database/models');
 
 /**
  * ServiceTitan integration service
@@ -17,6 +18,36 @@ class ServiceTitanService {
     // Simulation state
     this.simulatedJobs = new Map();
     this.simulatedJobCounter = 1000;
+    this.initialized = false;
+  }
+
+  /**
+   * Initialize counter from database to avoid conflicts after server restart
+   * @private
+   */
+  async _initializeCounter() {
+    if (this.initialized) return;
+
+    try {
+      const maxJob = await Booking.findOne({
+        attributes: [[Booking.sequelize.fn('MAX', Booking.sequelize.cast(Booking.sequelize.col('service_titan_job_id'), 'INTEGER')), 'maxId']],
+        where: {
+          service_titan_job_id: {
+            [Booking.sequelize.Op.ne]: null
+          }
+        },
+        raw: true
+      });
+
+      if (maxJob && maxJob.maxId) {
+        this.simulatedJobCounter = parseInt(maxJob.maxId);
+      }
+
+      this.initialized = true;
+    } catch (error) {
+      // If initialization fails, continue with default counter
+      this.initialized = true;
+    }
   }
 
   /**
@@ -59,7 +90,8 @@ class ServiceTitanService {
     // Simulate different error scenarios
     await this._simulateErrors(bookingData);
 
-    const jobId = ++this.simulatedJobCounter;
+    // Generate unique job ID using timestamp + random to avoid collisions
+    const jobId = Date.now() + Math.floor(Math.random() * 1000);
 
     const serviceTitanJob = {
       id: jobId,
