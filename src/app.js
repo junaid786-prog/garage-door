@@ -1,12 +1,12 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-const morgan = require('morgan');
 const compression = require('compression');
 const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
 const validateApiKey = require('./middleware/apiKeyAuth');
 const { createRateLimiter } = require('./middleware/rateLimiter');
+const { getMorganMiddleware } = require('./config/morgan');
 
 // Import routes
 const eventRoutes = require('./modules/events/routes');
@@ -30,12 +30,8 @@ app.use(express.urlencoded({ extended: true }));
 // Compression middleware
 app.use(compression());
 
-// Logging middleware
-if (config.env === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// Logging middleware (production-safe, no PII in logs)
+app.use(getMorganMiddleware(config.env));
 
 // Rate limiting middleware (applied to all routes)
 const rateLimiter = createRateLimiter();

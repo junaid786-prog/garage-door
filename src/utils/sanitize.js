@@ -256,8 +256,8 @@ const sanitizeData = (data) => {
       sanitized[key] = '[REDACTED]';
     } else if (lowerKey.includes('password') || lowerKey.includes('token') || lowerKey.includes('secret')) {
       sanitized[key] = '[REDACTED]';
-    } else if (lowerKey.includes('note') || lowerKey.includes('comment') || lowerKey.includes('message')) {
-      // Notes might contain PII
+    } else if (lowerKey.includes('note') || lowerKey.includes('comment')) {
+      // Notes and comments might contain PII
       sanitized[key] = '[REDACTED]';
     } else if (typeof value === 'object') {
       // Recursively sanitize nested objects
@@ -286,8 +286,8 @@ const sanitizeRequest = (req) => {
     // NEVER log req.query - might contain PII
     // NEVER log req.params - might contain PII
     headers: {
-      'user-agent': req.headers['user-agent'],
-      'content-type': req.headers['content-type'],
+      'user-agent': req.headers?.['user-agent'] || req.get?.('user-agent'),
+      'content-type': req.headers?.['content-type'] || req.get?.('content-type'),
       // Don't log authorization headers
     },
     ip: req.ip,
