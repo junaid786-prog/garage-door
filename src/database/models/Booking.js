@@ -104,6 +104,8 @@ const Booking = sequelize.define(
     },
 
     // Scheduling fields
+    // NOTE: slot_id has a unique constraint for non-cancelled bookings
+    // This prevents double-booking at the database level
     slotId: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -193,6 +195,21 @@ const Booking = sequelize.define(
         where: {
           service_titan_job_id: {
             [sequelize.Sequelize.Op.ne]: null,
+          },
+        },
+      },
+      {
+        // Unique constraint on slot_id for active bookings (prevents double-booking)
+        // Cancelled bookings are excluded since cancelled slots can be reused
+        name: 'bookings_slot_id_active_unique',
+        fields: ['slot_id'],
+        unique: true,
+        where: {
+          slot_id: {
+            [sequelize.Sequelize.Op.ne]: null,
+          },
+          status: {
+            [sequelize.Sequelize.Op.ne]: 'cancelled',
           },
         },
       },

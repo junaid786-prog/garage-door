@@ -37,9 +37,19 @@ class NotFoundError extends AppError {
   }
 }
 
+/**
+ * Conflict error (409) - Resource already exists or conflicting state
+ */
+class ConflictError extends AppError {
+  constructor(message = 'Resource conflict') {
+    super(message, 409, 'CONFLICT');
+  }
+}
+
 module.exports = {
   AppError,
   ValidationError,
   UnauthorizedError,
   NotFoundError,
+  ConflictError,
 };

@@ -1,9 +1,10 @@
 const Booking = require('../../database/models/Booking');
-const { Op } = require('sequelize');
+const { Op, UniqueConstraintError } = require('sequelize');
 const serviceTitanIntegration = require('../integrations/servicetitan/integration');
 const schedulingService = require('../scheduling/service');
 const env = require('../../config/env');
 const { withTransaction } = require('../../utils/transaction');
+const { ConflictError } = require('../../utils/errors');
 
 /**
  * Booking service - handles booking business logic
@@ -23,123 +24,103 @@ class BookingService {
           const flatData = this._transformFormToModel(bookingData);
 
           // Create booking in database within transaction
+          // This may throw UniqueConstraintError if slot is already booked
           const booking = await Booking.create(flatData, { transaction });
 
           // Immediately attempt to create ServiceTitan job
           // This is synchronous to provide immediate feedback
-          try {
-            // Combine booking database fields with original form data
-            const serviceTitanData = {
-              id: booking.id,
-              // Database fields
-              contactName: booking.contactName,
-              phoneE164: booking.phoneE164,
-              street: booking.street,
-              unit: booking.unit,
-              city: booking.city,
-              state: booking.state,
-              zip: booking.zip,
-              serviceType: booking.serviceType,
-              serviceSymptom: booking.serviceSymptom,
-              doorCount: booking.doorCount,
-              doorAgeBucket: booking.doorAgeBucket,
-              occupancyType: booking.occupancyType,
-              notes: booking.notes,
-              // Original form data for fields not in database
-              ...bookingData,
-            };
+          // NOTE: serviceTitanIntegration should never throw, only return {success: false}
+          // If it does throw, the transaction will rollback automatically
 
-            const serviceTitanResult =
-              await serviceTitanIntegration.createJobFromBooking(serviceTitanData);
+          // Combine booking database fields with original form data
+          const serviceTitanData = {
+            id: booking.id,
+            // Database fields
+            contactName: booking.contactName,
+            phoneE164: booking.phoneE164,
+            street: booking.street,
+            unit: booking.unit,
+            city: booking.city,
+            state: booking.state,
+            zip: booking.zip,
+            serviceType: booking.serviceType,
+            serviceSymptom: booking.serviceSymptom,
+            doorCount: booking.doorCount,
+            doorAgeBucket: booking.doorAgeBucket,
+            occupancyType: booking.occupancyType,
+            notes: booking.notes,
+            // Original form data for fields not in database
+            ...bookingData,
+          };
 
-            if (serviceTitanResult.success) {
-              // Update booking with ServiceTitan job info within transaction
-              await booking.update(
-                {
-                  serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
-                  serviceTitanJobNumber: serviceTitanResult.jobNumber,
-                  serviceTitanStatus: serviceTitanResult.status,
-                },
-                { transaction }
-              );
+          const serviceTitanResult =
+            await serviceTitanIntegration.createJobFromBooking(serviceTitanData);
 
-              console.log('[Booking Service] ServiceTitan job created successfully:', {
-                bookingId: booking.id,
-                serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
-                jobNumber: serviceTitanResult.jobNumber,
-              });
-            } else {
-              console.error('[Booking Service] ServiceTitan job creation failed:', {
-                bookingId: booking.id,
-                error: serviceTitanResult.error,
-                shouldRetry: serviceTitanResult.shouldRetry,
-              });
-
-              // Update booking with error status within transaction
-              await booking.update(
-                {
-                  serviceTitanStatus: 'failed',
-                  serviceTitanError: serviceTitanResult.error,
-                },
-                { transaction }
-              );
-
-              // If retryable, could queue for background retry here
-              if (serviceTitanResult.shouldRetry) {
-                // TODO: Queue job for retry
-                console.log('[Booking Service] Queuing ServiceTitan job for retry');
-              }
-            }
-          } catch (serviceTitanError) {
-            // Log error but don't fail the booking creation
-            console.error('[Booking Service] ServiceTitan integration error:', {
-              bookingId: booking.id,
-              error: serviceTitanError.message,
-            });
-
+          if (serviceTitanResult.success) {
+            // Update booking with ServiceTitan job info within transaction
             await booking.update(
               {
-                serviceTitanStatus: 'error',
-                serviceTitanError: serviceTitanError.message,
+                serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+                serviceTitanJobNumber: serviceTitanResult.jobNumber,
+                serviceTitanStatus: serviceTitanResult.status,
               },
               { transaction }
             );
+
+            console.log('[Booking Service] ServiceTitan job created successfully:', {
+              bookingId: booking.id,
+              serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+              jobNumber: serviceTitanResult.jobNumber,
+            });
+          } else {
+            console.error('[Booking Service] ServiceTitan job creation failed:', {
+              bookingId: booking.id,
+              error: serviceTitanResult.error,
+              shouldRetry: serviceTitanResult.shouldRetry,
+            });
+
+            // Update booking with error status within transaction
+            await booking.update(
+              {
+                serviceTitanStatus: 'failed',
+                serviceTitanError: serviceTitanResult.error,
+              },
+              { transaction }
+            );
+
+            // If retryable, could queue for background retry here
+            if (serviceTitanResult.shouldRetry) {
+              // TODO: Queue job for retry
+              console.log('[Booking Service] Queuing ServiceTitan job for retry');
+            }
           }
 
           // Handle slot confirmation if auto-confirm is enabled
           if (env.SCHEDULING_AUTO_CONFIRM_SLOTS && booking.slotId) {
-            try {
-              console.log('[Booking Service] Auto-confirming reserved slot:', {
+            console.log('[Booking Service] Auto-confirming reserved slot:', {
+              bookingId: booking.id,
+              slotId: booking.slotId,
+            });
+
+            const confirmResult = await schedulingService.confirmReservedSlot(
+              booking.slotId,
+              booking.id
+            );
+
+            if (confirmResult.success) {
+              console.log('[Booking Service] Slot confirmed successfully:', {
                 bookingId: booking.id,
                 slotId: booking.slotId,
               });
-
-              const confirmResult = await schedulingService.confirmReservedSlot(
-                booking.slotId,
-                booking.id
-              );
-
-              if (confirmResult.success) {
-                console.log('[Booking Service] Slot confirmed successfully:', {
-                  bookingId: booking.id,
-                  slotId: booking.slotId,
-                });
-              } else {
-                console.error('[Booking Service] Slot confirmation failed:', {
-                  bookingId: booking.id,
-                  slotId: booking.slotId,
-                  error: confirmResult.error,
-                });
-
-                // Note: We don't fail the booking if slot confirmation fails
-                // The slot might have expired, but the booking is still valid
-              }
-            } catch (slotError) {
-              console.error('[Booking Service] Slot confirmation error:', {
+            } else {
+              console.error('[Booking Service] Slot confirmation failed:', {
                 bookingId: booking.id,
                 slotId: booking.slotId,
-                error: slotError.message,
+                error: confirmResult.error,
               });
+
+              // Note: We don't fail the booking if slot confirmation fails
+              // The slot might have expired, but the booking is still valid
             }
           }
 
@@ -149,6 +130,18 @@ class BookingService {
         { timeout: 30000 }
       ); // 30 second timeout for booking creation
     } catch (error) {
+      // Handle unique constraint violation (double-booking)
+      if (error instanceof UniqueConstraintError) {
+        // Check if it's the slot_id constraint
+        if (error.fields && error.fields.slot_id) {
+          throw new ConflictError(
+            'This time slot is no longer available. Please select a different time slot.'
+          );
+        }
+        // Generic unique constraint error
+        throw new ConflictError('This booking conflicts with an existing booking.');
+      }
+
       throw new Error(`Failed to create booking: ${error.message}`);
     }
   }
