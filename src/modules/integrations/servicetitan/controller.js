@@ -247,13 +247,16 @@ class ServiceTitanController {
         }
       }
 
-      return APIResponse.success(res, {
-        successful: results.length,
-        failed: errors.length,
-        results,
-        errors,
-      }, `Batch job creation completed: ${results.length} successful, ${errors.length} failed`);
-
+      return APIResponse.success(
+        res,
+        {
+          successful: results.length,
+          failed: errors.length,
+          results,
+          errors,
+        },
+        `Batch job creation completed: ${results.length} successful, ${errors.length} failed`
+      );
     } catch (error) {
       next(error);
     }

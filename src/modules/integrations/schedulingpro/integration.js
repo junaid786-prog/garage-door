@@ -26,7 +26,7 @@ class SchedulingProIntegration {
         timezone: result.timezone,
         totalSlots: result.totalSlots,
         availableSlots: result.availableSlots,
-        slots: result.slots.map(slot => ({
+        slots: result.slots.map((slot) => ({
           id: slot.id,
           date: slot.date,
           startTime: slot.startTime,
@@ -40,7 +40,6 @@ class SchedulingProIntegration {
           endDate: result.endDate,
         },
       };
-
     } catch (error) {
       console.error('[SchedulingPro Integration] Get slots failed:', {
         zipCode,
@@ -83,7 +82,6 @@ class SchedulingProIntegration {
         },
         slot: result.slot,
       };
-
     } catch (error) {
       console.error('[SchedulingPro Integration] Slot reservation failed:', {
         slotId,
@@ -122,7 +120,6 @@ class SchedulingProIntegration {
         status: result.status,
         confirmedAt: result.confirmedAt,
       };
-
     } catch (error) {
       console.error('[SchedulingPro Integration] Slot confirmation failed:', {
         slotId,
@@ -161,7 +158,6 @@ class SchedulingProIntegration {
         cancelledType: result.cancelledType,
         cancelledAt: result.cancelledAt,
       };
-
     } catch (error) {
       console.error('[SchedulingPro Integration] Slot cancellation failed:', {
         slotId,
@@ -208,14 +204,13 @@ class SchedulingProIntegration {
             message: result.error,
           };
         }
-        
+
         // Other errors (API issues, etc.)
         return {
           success: false,
           error: result.error,
         };
       }
-
     } catch (error) {
       return {
         success: false,
@@ -242,7 +237,6 @@ class SchedulingProIntegration {
         confirmedBookings: health.confirmedBookings,
         workingHours: health.workingHours,
       };
-
     } catch (error) {
       return {
         success: false,
@@ -271,9 +265,9 @@ class SchedulingProIntegration {
       thisWeek: [],
     };
 
-    slots.forEach(slot => {
+    slots.forEach((slot) => {
       const slotDate = new Date(slot.date);
-      
+
       if (slotDate.toDateString() === today.toDateString()) {
         grouped.today.push(slot);
       } else if (slotDate.toDateString() === tomorrow.toDateString()) {
@@ -300,7 +294,7 @@ class SchedulingProIntegration {
       'connection refused',
       'Service Unavailable',
       '503',
-      '502', 
+      '502',
       '500',
     ];
 
@@ -318,14 +312,20 @@ class SchedulingProIntegration {
     ];
 
     // Check for non-retryable errors first
-    if (nonRetryableErrors.some(errorText => 
-      error.message.toLowerCase().includes(errorText.toLowerCase()))) {
+    if (
+      nonRetryableErrors.some((errorText) =>
+        error.message.toLowerCase().includes(errorText.toLowerCase())
+      )
+    ) {
       return false;
     }
 
     // Check for retryable errors
-    if (retryableErrors.some(errorText => 
-      error.message.toLowerCase().includes(errorText.toLowerCase()))) {
+    if (
+      retryableErrors.some((errorText) =>
+        error.message.toLowerCase().includes(errorText.toLowerCase())
+      )
+    ) {
       return true;
     }
 

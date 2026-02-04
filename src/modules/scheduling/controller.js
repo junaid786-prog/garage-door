@@ -14,7 +14,7 @@ class SchedulingController {
   async getAvailableSlots(req, res, next) {
     try {
       const { zip } = req.query;
-      
+
       if (!zip) {
         return APIResponse.badRequest(res, 'ZIP code is required');
       }
@@ -42,11 +42,10 @@ class SchedulingController {
         if (result.error.includes('service not available')) {
           return APIResponse.badRequest(res, result.error);
         }
-        
+
         // Other errors
         return APIResponse.error(res, result.error, 503);
       }
-
     } catch (error) {
       next(error);
     }
@@ -87,7 +86,6 @@ class SchedulingController {
         // Other errors
         return APIResponse.error(res, result.error, 503);
       }
-
     } catch (error) {
       next(error);
     }
@@ -114,7 +112,6 @@ class SchedulingController {
       } else {
         return APIResponse.error(res, result.error, 503);
       }
-
     } catch (error) {
       next(error);
     }
@@ -150,7 +147,6 @@ class SchedulingController {
 
         return APIResponse.error(res, result.error, 503);
       }
-
     } catch (error) {
       next(error);
     }
@@ -165,14 +161,17 @@ class SchedulingController {
   async getCurrentReservations(req, res, next) {
     try {
       const reservations = service.getCurrentReservations();
-      
-      return APIResponse.success(res, {
-        reservations,
-        total: reservations.length,
-        expired: reservations.filter(r => r.expired).length,
-        active: reservations.filter(r => !r.expired).length,
-      }, 'Current reservations retrieved successfully');
 
+      return APIResponse.success(
+        res,
+        {
+          reservations,
+          total: reservations.length,
+          expired: reservations.filter((r) => r.expired).length,
+          active: reservations.filter((r) => !r.expired).length,
+        },
+        'Current reservations retrieved successfully'
+      );
     } catch (error) {
       next(error);
     }
@@ -187,12 +186,15 @@ class SchedulingController {
   async cleanupExpiredReservations(req, res, next) {
     try {
       const cleaned = service.cleanupExpiredReservations();
-      
-      return APIResponse.success(res, {
-        cleanedCount: cleaned,
-        message: `${cleaned} expired reservations cleaned up`,
-      }, 'Expired reservations cleaned up successfully');
 
+      return APIResponse.success(
+        res,
+        {
+          cleanedCount: cleaned,
+          message: `${cleaned} expired reservations cleaned up`,
+        },
+        'Expired reservations cleaned up successfully'
+      );
     } catch (error) {
       next(error);
     }
@@ -208,10 +210,10 @@ class SchedulingController {
     try {
       const schedulingProIntegration = require('../integrations/schedulingpro/integration');
       const health = await schedulingProIntegration.getHealthStatus();
-      
+
       // Add our service layer stats
       const reservations = service.getCurrentReservations();
-      
+
       const response = {
         ...health,
         serviceLayer: {
@@ -219,17 +221,20 @@ class SchedulingController {
           reservationTimeout: service.reservationTimeout,
           autoConfirmSlots: service.autoConfirmSlots,
           cachedSlotsKeys: service.slotsCache.size,
-          activeReservations: reservations.filter(r => !r.expired).length,
-          expiredReservations: reservations.filter(r => r.expired).length,
+          activeReservations: reservations.filter((r) => !r.expired).length,
+          expiredReservations: reservations.filter((r) => r.expired).length,
         },
       };
 
       if (health.success) {
-        return APIResponse.success(res, response, 'Scheduling system health retrieved successfully');
+        return APIResponse.success(
+          res,
+          response,
+          'Scheduling system health retrieved successfully'
+        );
       } else {
         return APIResponse.error(res, health.error, 503);
       }
-
     } catch (error) {
       next(error);
     }

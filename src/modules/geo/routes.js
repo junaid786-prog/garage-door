@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('./controller');
-const { 
-  validateZipCode, 
-  validateCoordinates, 
-  validateDistance, 
-  validateGeoDataQuery 
+const {
+  validateZipCode,
+  validateCoordinates,
+  validateDistance,
+  validateGeoDataQuery,
 } = require('./validator');
 
 /**

@@ -17,24 +17,16 @@ const zipCodeSchema = Joi.object({
 });
 
 const coordinatesSchema = Joi.object({
-  latitude: Joi.number()
-    .min(-90)
-    .max(90)
-    .required()
-    .messages({
-      'number.min': 'Latitude must be between -90 and 90',
-      'number.max': 'Latitude must be between -90 and 90',
-      'any.required': 'Latitude is required',
-    }),
-  longitude: Joi.number()
-    .min(-180)
-    .max(180)
-    .required()
-    .messages({
-      'number.min': 'Longitude must be between -180 and 180',
-      'number.max': 'Longitude must be between -180 and 180',
-      'any.required': 'Longitude is required',
-    }),
+  latitude: Joi.number().min(-90).max(90).required().messages({
+    'number.min': 'Latitude must be between -90 and 90',
+    'number.max': 'Latitude must be between -90 and 90',
+    'any.required': 'Latitude is required',
+  }),
+  longitude: Joi.number().min(-180).max(180).required().messages({
+    'number.min': 'Longitude must be between -180 and 180',
+    'number.max': 'Longitude must be between -180 and 180',
+    'any.required': 'Longitude is required',
+  }),
 });
 
 const distanceSchema = Joi.object({
@@ -98,7 +90,7 @@ module.exports = {
   validateCoordinates,
   validateDistance,
   validateGeoDataQuery,
-  
+
   // Export schemas for testing
   schemas: {
     zipCodeSchema,

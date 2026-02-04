@@ -5,6 +5,7 @@ The geo module handles geolocation services, ZIP code validation, and service ar
 ## Overview
 
 This module provides:
+
 - ZIP code to location data mapping
 - Coordinate-based location lookup
 - Service area validation
@@ -14,12 +15,15 @@ This module provides:
 ## API Endpoints
 
 ### GET `/api/geo/`
+
 Legacy endpoint for backward compatibility.
 
 **Query Parameters:**
+
 - `zip` (optional): ZIP code to lookup
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -33,12 +37,15 @@ Legacy endpoint for backward compatibility.
 ```
 
 ### GET `/api/geo/zip/:zipCode`
+
 Get location data by ZIP code.
 
 **Parameters:**
+
 - `zipCode`: 5-digit ZIP code (e.g., 85251)
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -58,13 +65,16 @@ Get location data by ZIP code.
 ```
 
 ### GET `/api/geo/coordinates`
+
 Get location data by coordinates.
 
 **Query Parameters:**
+
 - `latitude`: Latitude coordinate (-90 to 90)
 - `longitude`: Longitude coordinate (-180 to 180)
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -84,12 +94,15 @@ Get location data by coordinates.
 ```
 
 ### GET `/api/geo/validate/:zipCode`
+
 Validate if ZIP code is in service area.
 
 **Parameters:**
+
 - `zipCode`: 5-digit ZIP code to validate
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -103,9 +116,11 @@ Validate if ZIP code is in service area.
 ```
 
 ### GET `/api/geo/service-areas`
+
 Get all serviceable areas.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -120,14 +135,16 @@ Get all serviceable areas.
 ```
 
 ### POST `/api/geo/distance`
+
 Calculate distance between two points.
 
 **Request Body:**
+
 ```json
 {
   "point1": {
     "latitude": 33.4484,
-    "longitude": -112.0740
+    "longitude": -112.074
   },
   "point2": {
     "latitude": 33.4942,
@@ -137,6 +154,7 @@ Calculate distance between two points.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -145,7 +163,7 @@ Calculate distance between two points.
     "unit": "miles",
     "point1": {
       "latitude": 33.4484,
-      "longitude": -112.0740
+      "longitude": -112.074
     },
     "point2": {
       "latitude": 33.4942,
@@ -158,6 +176,7 @@ Calculate distance between two points.
 ## Architecture
 
 ### Files Structure
+
 ```
 src/modules/geo/
 ├── controller.js    # Request handlers and validation
@@ -168,6 +187,7 @@ src/modules/geo/
 ```
 
 ### Dependencies
+
 - **Joi**: Input validation and schema enforcement
 - **Express**: Web framework for routing
 - **APIResponse**: Standardized response formatting
@@ -175,39 +195,48 @@ src/modules/geo/
 ## Service Layer Methods
 
 ### `getLocationByZip(zipCode)`
+
 Retrieve location data for a given ZIP code.
 
 **Parameters:**
+
 - `zipCode` (string): 5-digit ZIP code
 
 **Returns:** Promise resolving to location data object
 
 ### `getLocationByCoordinates(latitude, longitude)`
+
 Retrieve location data for given coordinates.
 
 **Parameters:**
+
 - `latitude` (number): Latitude coordinate
 - `longitude` (number): Longitude coordinate
 
 **Returns:** Promise resolving to location data object
 
 ### `validateServiceArea(zipCode)`
+
 Check if ZIP code is within service area.
 
 **Parameters:**
+
 - `zipCode` (string): ZIP code to validate
 
 **Returns:** Promise resolving to validation result
 
 ### `getServiceableAreas()`
+
 Get list of all serviceable ZIP codes and areas.
 
 **Returns:** Promise resolving to service area data
 
 ### `calculateDistance(point1, point2)`
+
 Calculate distance between two coordinate points.
 
 **Parameters:**
+
 - `point1` (object): First coordinate point
 - `point2` (object): Second coordinate point
 
@@ -224,6 +253,7 @@ All endpoints include proper input validation:
 ## Error Handling
 
 The module follows standard error handling patterns:
+
 - Validation errors return 400 Bad Request
 - Server errors return 500 Internal Server Error
 - All errors include descriptive messages
@@ -249,17 +279,22 @@ The service layer contains dummy data for development purposes. In production, t
 ## Integration Notes
 
 ### Frontend Integration
+
 The legacy endpoint maintains backward compatibility with existing frontend code while new endpoints provide enhanced functionality.
 
 ### External APIs
+
 When implementing real geolocation services, consider:
+
 - API rate limiting
 - Caching strategies
 - Fallback mechanisms
 - Cost optimization
 
 ### Database Integration
+
 For production, consider storing:
+
 - Service area polygons
 - ZIP code lookup tables
 - Historical geocoding results

@@ -109,8 +109,8 @@ class EventService {
       limit: Math.min(parseInt(pagination.limit) || 50, 1000), // Max 1000 results
       offset: Math.max(parseInt(pagination.offset) || 0, 0),
       orderBy: pagination.orderBy || 'timestamp',
-      orderDir: ['ASC', 'DESC'].includes(pagination.orderDir?.toUpperCase()) 
-        ? pagination.orderDir.toUpperCase() 
+      orderDir: ['ASC', 'DESC'].includes(pagination.orderDir?.toUpperCase())
+        ? pagination.orderDir.toUpperCase()
         : 'DESC',
     };
 
@@ -183,11 +183,13 @@ class EventService {
     eventNames.forEach((eventName, index) => {
       const normalizedName = eventName.toLowerCase().trim();
       const count = funnelData[normalizedName] || 0;
-      
+
       funnelWithRates[eventName] = {
         count,
-        conversionRate: previousCount ? (count / previousCount * 100).toFixed(2) : 100,
-        dropOffRate: previousCount ? ((previousCount - count) / previousCount * 100).toFixed(2) : 0,
+        conversionRate: previousCount ? ((count / previousCount) * 100).toFixed(2) : 100,
+        dropOffRate: previousCount
+          ? (((previousCount - count) / previousCount) * 100).toFixed(2)
+          : 0,
       };
 
       previousCount = count;

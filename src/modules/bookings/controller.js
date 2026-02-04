@@ -5,7 +5,6 @@ const APIResponse = require('../../utils/response');
  * Booking controller - handles booking HTTP requests
  */
 class BookingController {
-  
   /**
    * Create a new booking
    * @param {Request} req
@@ -31,11 +30,11 @@ class BookingController {
     try {
       const { id } = req.params;
       const booking = await service.getBookingById(id);
-      
+
       if (!booking) {
         return APIResponse.notFound(res, 'Booking not found');
       }
-      
+
       return APIResponse.success(res, booking, 'Booking retrieved successfully');
     } catch (error) {
       next(error);
@@ -52,7 +51,7 @@ class BookingController {
     try {
       const filters = req.query;
       const result = await service.getBookings(filters);
-      
+
       return APIResponse.success(res, result, 'Bookings retrieved successfully');
     } catch (error) {
       next(error);
@@ -69,11 +68,11 @@ class BookingController {
     try {
       const { id } = req.params;
       const booking = await service.updateBooking(id, req.body);
-      
+
       if (!booking) {
         return APIResponse.notFound(res, 'Booking not found');
       }
-      
+
       return APIResponse.success(res, booking, 'Booking updated successfully');
     } catch (error) {
       next(error);
@@ -90,13 +89,13 @@ class BookingController {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      
+
       const booking = await service.updateBookingStatus(id, status);
-      
+
       if (!booking) {
         return APIResponse.notFound(res, 'Booking not found');
       }
-      
+
       return APIResponse.success(res, booking, 'Booking status updated successfully');
     } catch (error) {
       next(error);
@@ -113,11 +112,11 @@ class BookingController {
     try {
       const { id } = req.params;
       const success = await service.deleteBooking(id);
-      
+
       if (!success) {
         return APIResponse.notFound(res, 'Booking not found');
       }
-      
+
       return APIResponse.noContent(res);
     } catch (error) {
       next(error);
@@ -134,13 +133,13 @@ class BookingController {
     try {
       const { id } = req.params;
       const { serviceTitanJobId } = req.body;
-      
+
       const booking = await service.linkServiceTitanJob(id, serviceTitanJobId);
-      
+
       if (!booking) {
         return APIResponse.notFound(res, 'Booking not found');
       }
-      
+
       return APIResponse.success(res, booking, 'ServiceTitan job linked successfully');
     } catch (error) {
       next(error);
@@ -157,12 +156,8 @@ class BookingController {
     try {
       const { phone } = req.params;
       const bookings = await service.getBookingsByPhone(phone);
-      
-      return APIResponse.success(
-        res, 
-        { bookings }, 
-        'Bookings retrieved successfully'
-      );
+
+      return APIResponse.success(res, { bookings }, 'Bookings retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -179,5 +174,5 @@ module.exports = {
   updateBookingStatus: controller.updateBookingStatus.bind(controller),
   deleteBooking: controller.deleteBooking.bind(controller),
   linkServiceTitanJob: controller.linkServiceTitanJob.bind(controller),
-  getBookingsByPhone: controller.getBookingsByPhone.bind(controller)
+  getBookingsByPhone: controller.getBookingsByPhone.bind(controller),
 };

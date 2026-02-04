@@ -10,7 +10,7 @@ class SchedulingService {
     // In-memory cache for demo (replace with Redis in production)
     this.slotsCache = new Map();
     this.reservationsCache = new Map();
-    
+
     // Configuration from environment
     this.cacheTimeout = env.SCHEDULING_CACHE_TTL_MINUTES * 60 * 1000; // Convert to milliseconds
     this.reservationTimeout = env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES;
@@ -50,7 +50,7 @@ class SchedulingService {
       // Check cache first
       const cacheKey = this._generateCacheKey(zipCode, startDate, endDate);
       const cachedResult = this._getFromCache(cacheKey);
-      
+
       if (cachedResult) {
         console.log(`[Scheduling Service] Cache hit for ${zipCode}`);
         return {
@@ -74,16 +74,19 @@ class SchedulingService {
       }
 
       // Filter out unavailable slots and past slots
-      const availableSlots = result.slots.filter(slot => {
+      const availableSlots = result.slots.filter((slot) => {
         if (!slot.available) return false;
-        
+
         // Check if slot is in the past
         const slotDateTime = new Date(`${slot.date}T${slot.startTime}:00`);
         return slotDateTime > new Date();
       });
 
       // Group slots by timeframe
-      const groupedSlots = schedulingProIntegration.groupSlotsByTimeframe(availableSlots, result.timezone);
+      const groupedSlots = schedulingProIntegration.groupSlotsByTimeframe(
+        availableSlots,
+        result.timezone
+      );
 
       // Format response
       const response = {
@@ -105,7 +108,6 @@ class SchedulingService {
       this._setCache(cacheKey, response);
 
       return response;
-
     } catch (error) {
       console.error('[Scheduling Service] Get slots error:', {
         zipCode,
@@ -142,8 +144,8 @@ class SchedulingService {
 
       // Reserve slot with SchedulingPro
       const result = await schedulingProIntegration.reserveSlot(
-        slotId, 
-        bookingId, 
+        slotId,
+        bookingId,
         this.reservationTimeout
       );
 
@@ -169,15 +171,20 @@ class SchedulingService {
       this.reservationsCache.set(slotId, reservation);
 
       // Set timeout to clean up expired reservation
-      setTimeout(() => {
-        const current = this.reservationsCache.get(slotId);
-        if (current && current.expiresAt <= new Date()) {
-          this.reservationsCache.delete(slotId);
-          console.log(`[Scheduling Service] Reservation expired and cleaned up: ${slotId}`);
-        }
-      }, this.reservationTimeout * 60 * 1000);
+      setTimeout(
+        () => {
+          const current = this.reservationsCache.get(slotId);
+          if (current && current.expiresAt <= new Date()) {
+            this.reservationsCache.delete(slotId);
+            console.log(`[Scheduling Service] Reservation expired and cleaned up: ${slotId}`);
+          }
+        },
+        this.reservationTimeout * 60 * 1000
+      );
 
-      console.log(`[Scheduling Service] Slot reserved: ${slotId} for ${this.reservationTimeout} minutes`);
+      console.log(
+        `[Scheduling Service] Slot reserved: ${slotId} for ${this.reservationTimeout} minutes`
+      );
 
       return {
         success: true,
@@ -190,7 +197,6 @@ class SchedulingService {
         },
         slot: reservation.slot,
       };
-
     } catch (error) {
       console.error('[Scheduling Service] Reservation error:', {
         slotId,
@@ -247,7 +253,7 @@ class SchedulingService {
       if (result.success) {
         // Remove from reservations cache (now it's confirmed)
         this.reservationsCache.delete(slotId);
-        
+
         // Invalidate slots cache for this area
         this._invalidateSlotsCacheForSlot(slotId);
 
@@ -255,7 +261,6 @@ class SchedulingService {
       }
 
       return result;
-
     } catch (error) {
       console.error('[Scheduling Service] Confirmation error:', {
         slotId,
@@ -291,12 +296,11 @@ class SchedulingService {
       if (result.success) {
         // Invalidate slots cache for this area
         this._invalidateSlotsCacheForSlot(slotId);
-        
+
         console.log(`[Scheduling Service] Slot cancelled: ${slotId} for booking: ${bookingId}`);
       }
 
       return result;
-
     } catch (error) {
       console.error('[Scheduling Service] Cancellation error:', {
         slotId,
@@ -337,7 +341,7 @@ class SchedulingService {
 
       // Then check with SchedulingPro for detailed availability
       const schedulingProResult = await schedulingProIntegration.checkServiceAvailability(zipCode);
-      
+
       // Merge geo and SchedulingPro data
       return {
         ...schedulingProResult,
@@ -346,7 +350,6 @@ class SchedulingService {
         timezone: schedulingValidation.timezone,
         serviceHours: schedulingValidation.serviceHours,
       };
-
     } catch (error) {
       console.error('[Scheduling Service] Service availability check error:', {
         zipCode,
@@ -386,7 +389,7 @@ class SchedulingService {
   cleanupExpiredReservations() {
     let cleaned = 0;
     const now = new Date();
-    
+
     for (const [slotId, reservation] of this.reservationsCache.entries()) {
       if (reservation.expiresAt <= now) {
         this.reservationsCache.delete(slotId);
@@ -405,9 +408,9 @@ class SchedulingService {
 
   /**
    * Generate cache key
-   * @param {string} zipCode 
-   * @param {Date} startDate 
-   * @param {Date} endDate 
+   * @param {string} zipCode
+   * @param {Date} startDate
+   * @param {Date} endDate
    * @returns {string}
    * @private
    */
@@ -419,7 +422,7 @@ class SchedulingService {
 
   /**
    * Get item from cache
-   * @param {string} key 
+   * @param {string} key
    * @returns {Object|null}
    * @private
    */
@@ -438,8 +441,8 @@ class SchedulingService {
 
   /**
    * Set item in cache
-   * @param {string} key 
-   * @param {Object} value 
+   * @param {string} key
+   * @param {Object} value
    * @private
    */
   _setCache(key, value) {
@@ -453,7 +456,7 @@ class SchedulingService {
 
   /**
    * Invalidate slots cache for a specific slot
-   * @param {string} slotId 
+   * @param {string} slotId
    * @private
    */
   _invalidateSlotsCacheForSlot(slotId) {

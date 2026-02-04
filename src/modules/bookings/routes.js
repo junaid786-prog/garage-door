@@ -9,31 +9,19 @@ const { middleware } = require('./validator');
  */
 
 // Create a new booking
-router.post('/', 
-  middleware.validateBookingCreate, 
-  controller.createBooking
-);
+router.post('/', middleware.validateBookingCreate, controller.createBooking);
 
 // Get all bookings with filters and pagination
-router.get('/', 
-  middleware.validateBookingQuery, 
-  controller.getBookings
-);
+router.get('/', middleware.validateBookingQuery, controller.getBookings);
 
 // Get booking by ID
 router.get('/:id', controller.getBookingById);
 
 // Update booking
-router.put('/:id', 
-  middleware.validateBookingUpdate, 
-  controller.updateBooking
-);
+router.put('/:id', middleware.validateBookingUpdate, controller.updateBooking);
 
 // Update booking status only
-router.patch('/:id/status', 
-  middleware.validateBookingStatus, 
-  controller.updateBookingStatus
-);
+router.patch('/:id/status', middleware.validateBookingStatus, controller.updateBookingStatus);
 
 // Delete booking (soft delete - marks as cancelled)
 router.delete('/:id', controller.deleteBooking);
@@ -42,8 +30,6 @@ router.delete('/:id', controller.deleteBooking);
 router.get('/phone/:phone', controller.getBookingsByPhone);
 
 // Link booking to ServiceTitan job (for future integration)
-router.post('/:id/servicetitan', 
-  controller.linkServiceTitanJob
-);
+router.post('/:id/servicetitan', controller.linkServiceTitanJob);
 
 module.exports = router;

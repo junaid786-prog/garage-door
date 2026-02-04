@@ -118,7 +118,7 @@ class GeoController {
       const zipCode = zip || '85251'; // Default to Scottsdale
 
       const locationData = await service.getLocationByZip(zipCode);
-      
+
       // Return in legacy format for compatibility
       const legacyFormat = {
         zip: locationData.zip,

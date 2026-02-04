@@ -31,7 +31,6 @@ class ServiceTitanIntegration {
         businessUnit: job.businessUnit,
         createdAt: job.createdAt,
       };
-
     } catch (error) {
       console.error('[ServiceTitan Integration] Job creation failed:', {
         bookingId: bookingData.id,
@@ -62,7 +61,6 @@ class ServiceTitanIntegration {
         status: updatedJob.status,
         updatedAt: updatedJob.updatedAt,
       };
-
     } catch (error) {
       console.error('[ServiceTitan Integration] Status update failed:', {
         jobId: serviceTitanJobId,
@@ -95,7 +93,6 @@ class ServiceTitanIntegration {
         cancellationReason: cancelledJob.cancellationReason,
         cancelledAt: cancelledJob.cancelledAt,
       };
-
     } catch (error) {
       console.error('[ServiceTitan Integration] Job cancellation failed:', {
         jobId: serviceTitanJobId,
@@ -136,7 +133,6 @@ class ServiceTitanIntegration {
           updatedAt: job.updatedAt,
         },
       };
-
     } catch (error) {
       return {
         success: false,
@@ -160,7 +156,6 @@ class ServiceTitanIntegration {
         health: health.status,
         jobsCreated: health.jobsCreated,
       };
-
     } catch (error) {
       return {
         success: false,
@@ -179,14 +174,14 @@ class ServiceTitanIntegration {
     // Extract first and last name from contactName if individual fields not provided
     let firstName = bookingData.firstName || bookingData.first_name;
     let lastName = bookingData.lastName || bookingData.last_name;
-    
+
     // If no firstName/lastName but we have contactName, split it
     if (!firstName && !lastName && bookingData.contactName) {
       const nameParts = bookingData.contactName.split(' ');
       firstName = nameParts[0] || 'Customer';
       lastName = nameParts.slice(1).join(' ') || 'Unknown';
     }
-    
+
     // Fallback if still no names
     if (!firstName) firstName = 'Customer';
     if (!lastName) lastName = 'Unknown';
@@ -207,11 +202,11 @@ class ServiceTitanIntegration {
     }
     if (!problemType && bookingData.serviceSymptom) {
       const symptomMap = {
-        'spring_bang': 'broken_spring',
-        'wont_open': 'door_wont_open',
-        'wont_close': 'door_wont_close',
-        'tune_up': 'tune_up',
-        'other': 'other'
+        spring_bang: 'broken_spring',
+        wont_open: 'door_wont_open',
+        wont_close: 'door_wont_close',
+        tune_up: 'tune_up',
+        other: 'other',
       };
       problemType = symptomMap[bookingData.serviceSymptom] || 'other';
     }
@@ -219,31 +214,34 @@ class ServiceTitanIntegration {
     return {
       // Booking reference
       bookingId: bookingData.id,
-      
+
       // Customer information
       firstName,
       lastName,
       phone,
       email: bookingData.email || 'no-email@provided.com',
       customerType: bookingData.customerType || 'residential',
-      
+
       // Service location
       address: bookingData.address || bookingData.street || bookingData.streetAddress,
       city: bookingData.city,
       state: bookingData.state,
       zip: bookingData.zip || bookingData.zipCode,
       coordinates: bookingData.coordinates,
-      
+
       // Job details
       problemType: problemType || 'other',
-      doorCount: parseInt(bookingData.doorCount || bookingData.numberOfDoors || bookingData.door?.count || 1),
+      doorCount: parseInt(
+        bookingData.doorCount || bookingData.numberOfDoors || bookingData.door?.count || 1
+      ),
       doorAge: bookingData.doorAge || (bookingData.doorAgeBucket === 'gte_8' ? 10 : 5),
-      isRenter: bookingData.isRenter || (bookingData.occupancyType === 'renter'),
-      
+      isRenter: bookingData.isRenter || bookingData.occupancyType === 'renter',
+
       // Scheduling
-      scheduledDate: bookingData.scheduledDate || bookingData.appointmentDate || new Date().toISOString(),
+      scheduledDate:
+        bookingData.scheduledDate || bookingData.appointmentDate || new Date().toISOString(),
       timeSlot: bookingData.timeSlot || bookingData.preferredTime || 'TBD',
-      
+
       // Additional information
       specialInstructions: bookingData.specialInstructions || bookingData.notes || '',
       campaignId: bookingData.campaignId,
@@ -269,8 +267,9 @@ class ServiceTitanIntegration {
       '500',
     ];
 
-    return retryableErrors.some(errorText => 
-      error.message.toLowerCase().includes(errorText.toLowerCase()));
+    return retryableErrors.some((errorText) =>
+      error.message.toLowerCase().includes(errorText.toLowerCase())
+    );
   }
 }
 

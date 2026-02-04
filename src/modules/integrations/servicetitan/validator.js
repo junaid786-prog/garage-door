@@ -9,7 +9,11 @@ const Joi = require('joi');
 const customerSchema = Joi.object({
   firstName: Joi.string().min(1).max(50).required(),
   lastName: Joi.string().min(1).max(50).required(),
-  phone: Joi.string().pattern(/^\+?[\d\s\-\(\)]+$/).min(10).max(15).required(),
+  phone: Joi.string()
+    .pattern(/^\+?[\d\s\-\(\)]+$/)
+    .min(10)
+    .max(15)
+    .required(),
   email: Joi.string().email().required(),
   customerType: Joi.string().valid('residential', 'commercial').default('residential'),
 });
@@ -19,7 +23,9 @@ const addressSchema = Joi.object({
   address: Joi.string().min(5).max(200).required(),
   city: Joi.string().min(2).max(50).required(),
   state: Joi.string().length(2).required(),
-  zip: Joi.string().pattern(/^\d{5}(-\d{4})?$/).required(),
+  zip: Joi.string()
+    .pattern(/^\d{5}(-\d{4})?$/)
+    .required(),
   coordinates: Joi.object({
     latitude: Joi.number().min(-90).max(90),
     longitude: Joi.number().min(-180).max(180),
@@ -30,35 +36,37 @@ const addressSchema = Joi.object({
 const jobSchema = Joi.object({
   // Booking reference
   bookingId: Joi.string().optional(),
-  
+
   // Customer information
   ...customerSchema.extract(['firstName', 'lastName', 'phone', 'email']),
   customerType: customerSchema.extract('customerType'),
-  
+
   // Service location
   ...addressSchema.extract(['address', 'city', 'state', 'zip']),
   coordinates: addressSchema.extract('coordinates'),
-  
+
   // Job details
-  problemType: Joi.string().valid(
-    'broken_spring', 
-    'door_wont_open', 
-    'door_wont_close', 
-    'door_stuck_closed',
-    'noisy_door',
-    'remote_not_working',
-    'new_door_installation',
-    'other'
-  ).required(),
-  
+  problemType: Joi.string()
+    .valid(
+      'broken_spring',
+      'door_wont_open',
+      'door_wont_close',
+      'door_stuck_closed',
+      'noisy_door',
+      'remote_not_working',
+      'new_door_installation',
+      'other'
+    )
+    .required(),
+
   doorCount: Joi.number().integer().min(1).max(10).default(1),
   doorAge: Joi.number().integer().min(0).max(50).optional(),
   isRenter: Joi.boolean().default(false),
-  
+
   // Scheduling
   scheduledDate: Joi.string().isoDate().required(),
   timeSlot: Joi.string().optional(),
-  
+
   // Additional information
   specialInstructions: Joi.string().max(500).optional(),
   campaignId: Joi.string().optional(),
@@ -67,13 +75,9 @@ const jobSchema = Joi.object({
 
 // Job status update validation schema
 const jobStatusSchema = Joi.object({
-  status: Joi.string().valid(
-    'scheduled',
-    'dispatched', 
-    'in_progress',
-    'completed',
-    'cancelled'
-  ).required(),
+  status: Joi.string()
+    .valid('scheduled', 'dispatched', 'in_progress', 'completed', 'cancelled')
+    .required(),
 });
 
 // Job cancellation validation schema
@@ -106,7 +110,7 @@ const validate = (schema, property = 'body') => {
     });
 
     if (error) {
-      const errorDetails = error.details.map(detail => ({
+      const errorDetails = error.details.map((detail) => ({
         field: detail.path.join('.'),
         message: detail.message,
         value: detail.context.value,
@@ -140,7 +144,7 @@ const validateBatchJobs = validate(batchJobsSchema, 'body');
  */
 const validateJobId = (req, res, next) => {
   const { jobId } = req.params;
-  
+
   if (!jobId) {
     return res.status(400).json({
       success: false,
@@ -166,7 +170,7 @@ const validateJobId = (req, res, next) => {
 const validateWebhook = (req, res, next) => {
   // In real implementation, validate ServiceTitan webhook signature
   const signature = req.headers['x-servicetitan-signature'];
-  
+
   if (!signature) {
     return res.status(401).json({
       success: false,
@@ -189,7 +193,7 @@ module.exports = {
   validateBatchJobs,
   validateJobId,
   validateWebhook,
-  
+
   // Export schemas for testing
   schemas: {
     jobSchema,

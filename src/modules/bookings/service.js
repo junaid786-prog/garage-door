@@ -3,12 +3,12 @@ const { Op } = require('sequelize');
 const serviceTitanIntegration = require('../integrations/servicetitan/integration');
 const schedulingService = require('../scheduling/service');
 const env = require('../../config/env');
+const { withTransaction } = require('../../utils/transaction');
 
 /**
  * Booking service - handles booking business logic
  */
 class BookingService {
-  
   /**
    * Create a new booking
    * @param {Object} bookingData - Booking form data
@@ -16,121 +16,138 @@ class BookingService {
    */
   async createBooking(bookingData) {
     try {
-      // Transform nested form data to flat model structure
-      const flatData = this._transformFormToModel(bookingData);
-      
-      // Create booking in database
-      const booking = await Booking.create(flatData);
+      // Wrap entire booking creation in a transaction for atomicity
+      return await withTransaction(
+        async (transaction) => {
+          // Transform nested form data to flat model structure
+          const flatData = this._transformFormToModel(bookingData);
 
-      // Immediately attempt to create ServiceTitan job
-      // This is synchronous to provide immediate feedback
-      try {
-        // Combine booking database fields with original form data
-        const serviceTitanData = {
-          id: booking.id,
-          // Database fields
-          contactName: booking.contactName,
-          phoneE164: booking.phoneE164,
-          street: booking.street,
-          unit: booking.unit,
-          city: booking.city,
-          state: booking.state,
-          zip: booking.zip,
-          serviceType: booking.serviceType,
-          serviceSymptom: booking.serviceSymptom,
-          doorCount: booking.doorCount,
-          doorAgeBucket: booking.doorAgeBucket,
-          occupancyType: booking.occupancyType,
-          notes: booking.notes,
-          // Original form data for fields not in database
-          ...bookingData,
-        };
+          // Create booking in database within transaction
+          const booking = await Booking.create(flatData, { transaction });
 
-        const serviceTitanResult = await serviceTitanIntegration.createJobFromBooking(serviceTitanData);
+          // Immediately attempt to create ServiceTitan job
+          // This is synchronous to provide immediate feedback
+          try {
+            // Combine booking database fields with original form data
+            const serviceTitanData = {
+              id: booking.id,
+              // Database fields
+              contactName: booking.contactName,
+              phoneE164: booking.phoneE164,
+              street: booking.street,
+              unit: booking.unit,
+              city: booking.city,
+              state: booking.state,
+              zip: booking.zip,
+              serviceType: booking.serviceType,
+              serviceSymptom: booking.serviceSymptom,
+              doorCount: booking.doorCount,
+              doorAgeBucket: booking.doorAgeBucket,
+              occupancyType: booking.occupancyType,
+              notes: booking.notes,
+              // Original form data for fields not in database
+              ...bookingData,
+            };
 
-        if (serviceTitanResult.success) {
-          // Update booking with ServiceTitan job info
-          await booking.update({
-            serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
-            serviceTitanJobNumber: serviceTitanResult.jobNumber,
-            serviceTitanStatus: serviceTitanResult.status,
-          });
+            const serviceTitanResult =
+              await serviceTitanIntegration.createJobFromBooking(serviceTitanData);
 
-          console.log('[Booking Service] ServiceTitan job created successfully:', {
-            bookingId: booking.id,
-            serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
-            jobNumber: serviceTitanResult.jobNumber,
-          });
-        } else {
-          console.error('[Booking Service] ServiceTitan job creation failed:', {
-            bookingId: booking.id,
-            error: serviceTitanResult.error,
-            shouldRetry: serviceTitanResult.shouldRetry,
-          });
+            if (serviceTitanResult.success) {
+              // Update booking with ServiceTitan job info within transaction
+              await booking.update(
+                {
+                  serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+                  serviceTitanJobNumber: serviceTitanResult.jobNumber,
+                  serviceTitanStatus: serviceTitanResult.status,
+                },
+                { transaction }
+              );
 
-          // Update booking with error status
-          await booking.update({
-            serviceTitanStatus: 'failed',
-            serviceTitanError: serviceTitanResult.error,
-          });
+              console.log('[Booking Service] ServiceTitan job created successfully:', {
+                bookingId: booking.id,
+                serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+                jobNumber: serviceTitanResult.jobNumber,
+              });
+            } else {
+              console.error('[Booking Service] ServiceTitan job creation failed:', {
+                bookingId: booking.id,
+                error: serviceTitanResult.error,
+                shouldRetry: serviceTitanResult.shouldRetry,
+              });
 
-          // If retryable, could queue for background retry here
-          if (serviceTitanResult.shouldRetry) {
-            // TODO: Queue job for retry
-            console.log('[Booking Service] Queuing ServiceTitan job for retry');
-          }
-        }
-      } catch (serviceTitanError) {
-        // Log error but don't fail the booking creation
-        console.error('[Booking Service] ServiceTitan integration error:', {
-          bookingId: booking.id,
-          error: serviceTitanError.message,
-        });
+              // Update booking with error status within transaction
+              await booking.update(
+                {
+                  serviceTitanStatus: 'failed',
+                  serviceTitanError: serviceTitanResult.error,
+                },
+                { transaction }
+              );
 
-        await booking.update({
-          serviceTitanStatus: 'error',
-          serviceTitanError: serviceTitanError.message,
-        });
-      }
-
-      // Handle slot confirmation if auto-confirm is enabled
-      if (env.SCHEDULING_AUTO_CONFIRM_SLOTS && booking.slotId) {
-        try {
-          console.log('[Booking Service] Auto-confirming reserved slot:', {
-            bookingId: booking.id,
-            slotId: booking.slotId,
-          });
-
-          const confirmResult = await schedulingService.confirmReservedSlot(
-            booking.slotId, 
-            booking.id
-          );
-
-          if (confirmResult.success) {
-            console.log('[Booking Service] Slot confirmed successfully:', {
+              // If retryable, could queue for background retry here
+              if (serviceTitanResult.shouldRetry) {
+                // TODO: Queue job for retry
+                console.log('[Booking Service] Queuing ServiceTitan job for retry');
+              }
+            }
+          } catch (serviceTitanError) {
+            // Log error but don't fail the booking creation
+            console.error('[Booking Service] ServiceTitan integration error:', {
               bookingId: booking.id,
-              slotId: booking.slotId,
-            });
-          } else {
-            console.error('[Booking Service] Slot confirmation failed:', {
-              bookingId: booking.id,
-              slotId: booking.slotId,
-              error: confirmResult.error,
+              error: serviceTitanError.message,
             });
 
-            // Note: We don't fail the booking if slot confirmation fails
-            // The slot might have expired, but the booking is still valid
+            await booking.update(
+              {
+                serviceTitanStatus: 'error',
+                serviceTitanError: serviceTitanError.message,
+              },
+              { transaction }
+            );
           }
-        } catch (slotError) {
-          console.error('[Booking Service] Slot confirmation error:', {
-            bookingId: booking.id,
-            slotId: booking.slotId,
-            error: slotError.message,
-          });
-        }
-      }
-      
-      return booking;
+
+          // Handle slot confirmation if auto-confirm is enabled
+          if (env.SCHEDULING_AUTO_CONFIRM_SLOTS && booking.slotId) {
+            try {
+              console.log('[Booking Service] Auto-confirming reserved slot:', {
+                bookingId: booking.id,
+                slotId: booking.slotId,
+              });
+
+              const confirmResult = await schedulingService.confirmReservedSlot(
+                booking.slotId,
+                booking.id
+              );
+
+              if (confirmResult.success) {
+                console.log('[Booking Service] Slot confirmed successfully:', {
+                  bookingId: booking.id,
+                  slotId: booking.slotId,
+                });
+              } else {
+                console.error('[Booking Service] Slot confirmation failed:', {
+                  bookingId: booking.id,
+                  slotId: booking.slotId,
+                  error: confirmResult.error,
+                });
+
+                // Note: We don't fail the booking if slot confirmation fails
+                // The slot might have expired, but the booking is still valid
+              }
+            } catch (slotError) {
+              console.error('[Booking Service] Slot confirmation error:', {
+                bookingId: booking.id,
+                slotId: booking.slotId,
+                error: slotError.message,
+              });
+            }
+          }
+
+          // Transaction will auto-commit if we reach here
+          return booking;
+        },
+        { timeout: 30000 }
+      ); // 30 second timeout for booking creation
     } catch (error) {
       throw new Error(`Failed to create booking: ${error.message}`);
     }
@@ -144,11 +161,11 @@ class BookingService {
   async getBookingById(id) {
     try {
       const booking = await Booking.findByPk(id);
-      
+
       if (booking) {
         return this._transformModelToResponse(booking);
       }
-      
+
       return null;
     } catch (error) {
       throw new Error(`Failed to get booking: ${error.message}`);
@@ -170,24 +187,24 @@ class BookingService {
         limit = 20,
         offset = 0,
         sortBy = 'created_at',
-        sortOrder = 'DESC'
+        sortOrder = 'DESC',
       } = filters;
 
       // Build where clause
       const whereClause = {};
-      
+
       if (status) {
         whereClause.status = status;
       }
-      
+
       if (phone) {
         whereClause.phoneE164 = phone;
       }
-      
+
       if (zip) {
         whereClause.zip = zip;
       }
-      
+
       if (serviceType) {
         whereClause.serviceType = serviceType;
       }
@@ -197,11 +214,11 @@ class BookingService {
         where: whereClause,
         limit: parseInt(limit),
         offset: parseInt(offset),
-        order: [[sortBy, sortOrder]]
+        order: [[sortBy, sortOrder]],
       });
 
       // Transform bookings to response format
-      const transformedBookings = bookings.map(booking => 
+      const transformedBookings = bookings.map((booking) =>
         this._transformModelToResponse(booking)
       );
 
@@ -211,8 +228,8 @@ class BookingService {
           total,
           page: Math.floor(offset / limit) + 1,
           pageSize: parseInt(limit),
-          totalPages: Math.ceil(total / limit)
-        }
+          totalPages: Math.ceil(total / limit),
+        },
       };
     } catch (error) {
       throw new Error(`Failed to get bookings: ${error.message}`);
@@ -227,19 +244,22 @@ class BookingService {
    */
   async updateBooking(id, updateData) {
     try {
-      const booking = await Booking.findByPk(id);
-      
-      if (!booking) {
-        return null;
-      }
+      // Wrap update in transaction for atomicity
+      return await withTransaction(async (transaction) => {
+        const booking = await Booking.findByPk(id, { transaction });
 
-      // Transform nested form data to flat model structure
-      const flatData = this._transformFormToModel(updateData);
-      
-      // Update booking
-      await booking.update(flatData);
-      
-      return this._transformModelToResponse(booking);
+        if (!booking) {
+          return null;
+        }
+
+        // Transform nested form data to flat model structure
+        const flatData = this._transformFormToModel(updateData);
+
+        // Update booking within transaction
+        await booking.update(flatData, { transaction });
+
+        return this._transformModelToResponse(booking);
+      });
     } catch (error) {
       throw new Error(`Failed to update booking: ${error.message}`);
     }
@@ -254,13 +274,13 @@ class BookingService {
   async updateBookingStatus(id, status) {
     try {
       const booking = await Booking.findByPk(id);
-      
+
       if (!booking) {
         return null;
       }
 
       await booking.update({ status });
-      
+
       return this._transformModelToResponse(booking);
     } catch (error) {
       throw new Error(`Failed to update booking status: ${error.message}`);
@@ -275,7 +295,7 @@ class BookingService {
   async deleteBooking(id) {
     try {
       const booking = await Booking.findByPk(id);
-      
+
       if (!booking) {
         return false;
       }
@@ -296,13 +316,13 @@ class BookingService {
   async linkServiceTitanJob(id, serviceTitanJobId) {
     try {
       const booking = await Booking.findByPk(id);
-      
+
       if (!booking) {
         return null;
       }
 
       await booking.update({ serviceTitanJobId });
-      
+
       return this._transformModelToResponse(booking);
     } catch (error) {
       throw new Error(`Failed to link ServiceTitan job: ${error.message}`);
@@ -318,10 +338,10 @@ class BookingService {
     try {
       const bookings = await Booking.findAll({
         where: { phoneE164 },
-        order: [['created_at', 'DESC']]
+        order: [['created_at', 'DESC']],
       });
 
-      return bookings.map(booking => this._transformModelToResponse(booking));
+      return bookings.map((booking) => this._transformModelToResponse(booking));
     } catch (error) {
       throw new Error(`Failed to get bookings by phone: ${error.message}`);
     }
@@ -336,7 +356,7 @@ class BookingService {
   async updateServiceTitanStatus(bookingId, status) {
     try {
       const booking = await Booking.findByPk(bookingId);
-      
+
       if (!booking) {
         throw new Error('Booking not found');
       }
@@ -347,7 +367,7 @@ class BookingService {
 
       // Update status in ServiceTitan
       const result = await serviceTitanIntegration.updateJobStatus(
-        booking.serviceTitanJobId, 
+        booking.serviceTitanJobId,
         status
       );
 
@@ -388,7 +408,7 @@ class BookingService {
   async cancelServiceTitanJob(bookingId, reason = 'Customer cancelled') {
     try {
       const booking = await Booking.findByPk(bookingId);
-      
+
       if (!booking) {
         throw new Error('Booking not found');
       }
@@ -398,10 +418,7 @@ class BookingService {
       }
 
       // Cancel job in ServiceTitan
-      const result = await serviceTitanIntegration.cancelJob(
-        booking.serviceTitanJobId, 
-        reason
-      );
+      const result = await serviceTitanIntegration.cancelJob(booking.serviceTitanJobId, reason);
 
       if (result.success) {
         // Update booking status
@@ -441,7 +458,7 @@ class BookingService {
   async retryServiceTitanJob(bookingId) {
     try {
       const booking = await Booking.findByPk(bookingId);
-      
+
       if (!booking) {
         throw new Error('Booking not found');
       }
@@ -452,7 +469,7 @@ class BookingService {
 
       // Reconstruct booking data for ServiceTitan
       const bookingData = this._transformModelToResponse(booking);
-      
+
       // Attempt to create ServiceTitan job
       const result = await serviceTitanIntegration.createJobFromBooking({
         id: booking.id,
@@ -496,7 +513,7 @@ class BookingService {
   async getServiceTitanJobDetails(bookingId) {
     try {
       const booking = await Booking.findByPk(bookingId);
-      
+
       if (!booking) {
         throw new Error('Booking not found');
       }
@@ -599,17 +616,17 @@ class BookingService {
    */
   _transformModelToResponse(booking) {
     const data = booking.toJSON();
-    
+
     return {
       id: data.id,
       service: {
         type: data.serviceType,
         symptom: data.serviceSymptom,
-        can_open_close: data.canOpenClose
+        can_open_close: data.canOpenClose,
       },
       door: {
         age_bucket: data.doorAgeBucket,
-        count: data.doorCount
+        count: data.doorCount,
       },
       replacement_pref: data.replacementPref,
       address: {
@@ -617,20 +634,20 @@ class BookingService {
         unit: data.unit,
         city: data.city,
         state: data.state,
-        zip: data.zip
+        zip: data.zip,
       },
       occupancy: {
         type: data.occupancyType,
-        renterPermission: data.renterPermission
+        renterPermission: data.renterPermission,
       },
       contact: {
         phoneE164: data.phoneE164,
-        name: data.contactName
+        name: data.contactName,
       },
       scheduling: {
         slot_id: data.slotId,
         asap_selected: data.asapSelected,
-        priority_score: data.priorityScore
+        priority_score: data.priorityScore,
       },
       notes: data.notes,
       suspected_issue: data.suspectedIssue,
@@ -638,7 +655,7 @@ class BookingService {
       serviceTitanJobId: data.serviceTitanJobId,
       schedulingProJobId: data.schedulingProJobId,
       created_at: data.createdAt,
-      updated_at: data.updatedAt
+      updated_at: data.updatedAt,
     };
   }
 }

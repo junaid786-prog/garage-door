@@ -5,6 +5,7 @@ The ServiceTitan integration module handles job creation, status updates, and sy
 ## Overview
 
 This module provides:
+
 - Job creation in ServiceTitan from booking data
 - Job status tracking and updates
 - Authentication with ServiceTitan API
@@ -19,9 +20,11 @@ This module provides:
 ## API Endpoints
 
 ### GET `/api/integrations/servicetitan/health`
+
 Check ServiceTitan integration health status.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -36,9 +39,11 @@ Check ServiceTitan integration health status.
 ```
 
 ### GET `/api/integrations/servicetitan/auth/test`
+
 Test ServiceTitan authentication.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -52,9 +57,11 @@ Test ServiceTitan authentication.
 ```
 
 ### POST `/api/integrations/servicetitan/jobs`
+
 Create a new job in ServiceTitan.
 
 **Request Body:**
+
 ```json
 {
   "bookingId": "booking_123",
@@ -77,6 +84,7 @@ Create a new job in ServiceTitan.
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -106,9 +114,11 @@ Create a new job in ServiceTitan.
 ```
 
 ### GET `/api/integrations/servicetitan/jobs/:jobId`
+
 Get job details by ID.
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -125,9 +135,11 @@ Get job details by ID.
 ```
 
 ### PATCH `/api/integrations/servicetitan/jobs/:jobId/status`
+
 Update job status.
 
 **Request Body:**
+
 ```json
 {
   "status": "dispatched"
@@ -135,6 +147,7 @@ Update job status.
 ```
 
 **Valid Statuses:**
+
 - `scheduled` - Job is scheduled
 - `dispatched` - Technician dispatched
 - `in_progress` - Work in progress
@@ -142,9 +155,11 @@ Update job status.
 - `cancelled` - Job cancelled
 
 ### DELETE `/api/integrations/servicetitan/jobs/:jobId`
+
 Cancel a job.
 
 **Request Body:**
+
 ```json
 {
   "reason": "Customer cancelled appointment"
@@ -152,16 +167,20 @@ Cancel a job.
 ```
 
 ### GET `/api/integrations/servicetitan/jobs`
+
 Get jobs by date range.
 
 **Query Parameters:**
+
 - `startDate`: ISO date string (e.g., "2025-11-13T00:00:00.000Z")
 - `endDate`: ISO date string (e.g., "2025-11-14T23:59:59.000Z")
 
 ### POST `/api/integrations/servicetitan/jobs/batch`
+
 Create multiple jobs in batch.
 
 **Request Body:**
+
 ```json
 {
   "bookings": [
@@ -172,7 +191,7 @@ Create multiple jobs in batch.
     },
     {
       "firstName": "Jane",
-      "lastName": "Smith", 
+      "lastName": "Smith",
       "...": "..."
     }
   ]
@@ -180,11 +199,13 @@ Create multiple jobs in batch.
 ```
 
 ### POST `/api/integrations/servicetitan/webhook`
+
 Webhook endpoint for ServiceTitan status updates (future use).
 
 ## Architecture
 
 ### Files Structure
+
 ```
 src/modules/integrations/servicetitan/
 ├── service.js          # Core ServiceTitan API simulation
@@ -196,6 +217,7 @@ src/modules/integrations/servicetitan/
 ```
 
 ### Dependencies
+
 - **Joi**: Input validation and schema enforcement
 - **Express**: Web framework for routing
 - **APIResponse**: Standardized response formatting
@@ -203,9 +225,11 @@ src/modules/integrations/servicetitan/
 ## Service Layer Methods
 
 ### Authentication
+
 - `authenticate()` - Authenticate with ServiceTitan API
 
 ### Job Management
+
 - `createJob(bookingData)` - Create new job
 - `getJob(jobId)` - Get job by ID
 - `updateJobStatus(jobId, status)` - Update job status
@@ -213,6 +237,7 @@ src/modules/integrations/servicetitan/
 - `getJobsByDateRange(startDate, endDate)` - Query jobs by date
 
 ### Utility
+
 - `getHealthStatus()` - Get service health status
 
 ## Queue Processing
@@ -220,6 +245,7 @@ src/modules/integrations/servicetitan/
 The module supports queue-based background processing for:
 
 ### Job Types
+
 1. **servicetitan-job-creation** (Priority: Critical)
    - Creates jobs in ServiceTitan
    - Retry on failure with exponential backoff
@@ -252,12 +278,14 @@ await jobProcessor.processHealthCheck(queueJob);
 ### Error Handling & Retries
 
 **Retryable Errors:**
+
 - Network timeouts
 - Service unavailable (503, 502, 500)
 - Connection failures
 - Temporary API issues
 
 **Non-Retryable Errors:**
+
 - Authentication failures
 - Invalid data format
 - Customer already exists
@@ -265,6 +293,7 @@ await jobProcessor.processHealthCheck(queueJob);
 - Invalid status transitions
 
 **Retry Logic:**
+
 - Max 3 attempts
 - Exponential backoff: 5s, 10s, 20s
 - Failed jobs logged for manual review
@@ -274,6 +303,7 @@ await jobProcessor.processHealthCheck(queueJob);
 All endpoints include comprehensive input validation:
 
 ### Job Creation Validation
+
 - **Customer Data**: Name, phone, email format
 - **Address**: Complete address with valid ZIP code
 - **Problem Type**: Must be from predefined list
@@ -281,6 +311,7 @@ All endpoints include comprehensive input validation:
 - **Scheduling**: Valid ISO date format
 
 ### Error Responses
+
 ```json
 {
   "success": false,
@@ -299,6 +330,7 @@ All endpoints include comprehensive input validation:
 ## Simulation Features
 
 ### Dummy Data Generation
+
 - Realistic job numbers and IDs
 - Customer ID generation
 - Business unit assignment by ZIP code
@@ -306,6 +338,7 @@ All endpoints include comprehensive input validation:
 - Duration estimation by job type
 
 ### Error Simulation
+
 - Random API failures (5% chance)
 - Specific error triggers:
   - `error@test.com` → Customer conflict
@@ -313,6 +346,7 @@ All endpoints include comprehensive input validation:
   - Phone `0000000000` → Invalid phone number
 
 ### Realistic Delays
+
 - Authentication: 200ms
 - Job creation: 800ms
 - Status updates: 400ms
@@ -321,30 +355,36 @@ All endpoints include comprehensive input validation:
 ## Integration with Booking Flow
 
 ### Immediate Response Pattern
+
 ```javascript
 // In booking controller
 app.post('/bookings', async (req, res) => {
   // 1. Create booking record
   const booking = await createBooking(req.body);
-  
+
   // 2. Queue ServiceTitan job creation (background)
-  await queueManager.addJob('servicetitan-job-creation', {
-    bookingData: {
-      bookingId: booking.id,
-      ...req.body
-    }
-  }, { priority: 'critical' });
-  
+  await queueManager.addJob(
+    'servicetitan-job-creation',
+    {
+      bookingData: {
+        bookingId: booking.id,
+        ...req.body,
+      },
+    },
+    { priority: 'critical' }
+  );
+
   // 3. Immediate response to user
-  res.json({ 
-    bookingId: booking.id, 
+  res.json({
+    bookingId: booking.id,
     status: 'confirmed',
-    serviceTitanJobQueued: true
+    serviceTitanJobQueued: true,
   });
 });
 ```
 
 ### Queue Integration Example
+
 ```javascript
 // Queue job handler
 queue.process('servicetitan-job-creation', async (job) => {
@@ -365,11 +405,13 @@ SERVICETITAN_APP_KEY=your_app_key_here
 ## Testing
 
 ### Health Check
+
 ```bash
 curl "http://localhost:3000/api/integrations/servicetitan/health"
 ```
 
 ### Create Job
+
 ```bash
 curl -X POST "http://localhost:3000/api/integrations/servicetitan/jobs" \
   -H "Content-Type: application/json" \
@@ -379,7 +421,7 @@ curl -X POST "http://localhost:3000/api/integrations/servicetitan/jobs" \
     "phone": "4805551234",
     "email": "john.doe@email.com",
     "address": "123 Main St",
-    "city": "Phoenix", 
+    "city": "Phoenix",
     "state": "AZ",
     "zip": "85001",
     "problemType": "broken_spring",
@@ -388,11 +430,12 @@ curl -X POST "http://localhost:3000/api/integrations/servicetitan/jobs" \
 ```
 
 ### Test Error Scenarios
+
 ```bash
 # Trigger customer conflict error
 curl -X POST "..." -d '{"email": "error@test.com", "..."}'
 
-# Trigger service area error  
+# Trigger service area error
 curl -X POST "..." -d '{"zip": "00000", "..."}'
 
 # Trigger phone validation error
@@ -404,6 +447,7 @@ curl -X POST "..." -d '{"phone": "0000000000", "..."}'
 When ready to use the real ServiceTitan API:
 
 1. **Update Environment Variables**
+
    ```bash
    SERVICETITAN_API_URL=https://api.servicetitan.com/v2
    SERVICETITAN_API_KEY=real_api_key
@@ -431,6 +475,7 @@ When ready to use the real ServiceTitan API:
 ## Monitoring & Alerts
 
 ### Key Metrics to Monitor
+
 - Job creation success rate
 - API response times
 - Queue job failures
@@ -438,6 +483,7 @@ When ready to use the real ServiceTitan API:
 - Rate limit violations
 
 ### Log Examples
+
 ```javascript
 // Success
 [ServiceTitan] Job created successfully: {

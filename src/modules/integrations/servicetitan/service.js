@@ -3,7 +3,7 @@ const env = require('../../../config/env');
 /**
  * ServiceTitan integration service
  * Simulates ServiceTitan API for job creation and management
- * 
+ *
  * This is a simulation service that mimics the real ServiceTitan API.
  * When real API credentials are available, replace this with actual API calls.
  */
@@ -13,7 +13,7 @@ class ServiceTitanService {
     this.apiKey = env.SERVICETITAN_API_KEY || 'sim_key_12345';
     this.tenantId = env.SERVICETITAN_TENANT_ID || 'sim_tenant_67890';
     this.appKey = env.SERVICETITAN_APP_KEY || 'sim_app_abcde';
-    
+
     // Simulation state
     this.simulatedJobs = new Map();
     this.simulatedJobCounter = 1000;
@@ -60,14 +60,14 @@ class ServiceTitanService {
     await this._simulateErrors(bookingData);
 
     const jobId = ++this.simulatedJobCounter;
-    
+
     const serviceTitanJob = {
       id: jobId,
       externalId: bookingData.bookingId || null,
       jobNumber: `JOB-${String(jobId).padStart(6, '0')}`,
       status: 'scheduled',
       priority: this._determinePriority(bookingData.problemType),
-      
+
       // Customer information
       customer: {
         id: this._generateCustomerId(),
@@ -102,16 +102,16 @@ class ServiceTitanService {
       scheduledDate: bookingData.scheduledDate,
       timeSlot: bookingData.timeSlot,
       estimatedDuration: this._estimateDuration(bookingData.problemType),
-      
+
       // ServiceTitan specific fields
       businessUnit: this._getBusinessUnit(bookingData.zip),
       campaignId: bookingData.campaignId || null,
       source: 'online_booking_widget',
-      
+
       // Timestamps
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      
+
       // Simulation metadata
       _simulation: {
         created: true,
@@ -177,11 +177,10 @@ class ServiceTitanService {
   async getJobsByDateRange(startDate, endDate) {
     await this._simulateDelay(600);
 
-    const jobs = Array.from(this.simulatedJobs.values())
-      .filter(job => {
-        const jobDate = new Date(job.scheduledDate);
-        return jobDate >= startDate && jobDate <= endDate;
-      });
+    const jobs = Array.from(this.simulatedJobs.values()).filter((job) => {
+      const jobDate = new Date(job.scheduledDate);
+      return jobDate >= startDate && jobDate <= endDate;
+    });
 
     return jobs;
   }
@@ -223,10 +222,12 @@ class ServiceTitanService {
     return {
       status: 'healthy',
       version: 'simulation-v1.0.0',
-      uptime: Date.now() - (1000 * 60 * 60 * 24), // 24 hours
+      uptime: Date.now() - 1000 * 60 * 60 * 24, // 24 hours
       jobsCreated: this.simulatedJobs.size,
-      lastJobCreated: this.simulatedJobs.size > 0 ? 
-        Array.from(this.simulatedJobs.values()).pop().createdAt : null,
+      lastJobCreated:
+        this.simulatedJobs.size > 0
+          ? Array.from(this.simulatedJobs.values()).pop().createdAt
+          : null,
     };
   }
 
@@ -234,11 +235,21 @@ class ServiceTitanService {
 
   /**
    * Validate booking data
-   * @param {Object} bookingData 
+   * @param {Object} bookingData
    */
   _validateBookingData(bookingData) {
-    const required = ['firstName', 'lastName', 'phone', 'email', 'address', 'city', 'state', 'zip', 'problemType'];
-    
+    const required = [
+      'firstName',
+      'lastName',
+      'phone',
+      'email',
+      'address',
+      'city',
+      'state',
+      'zip',
+      'problemType',
+    ];
+
     for (const field of required) {
       if (!bookingData[field]) {
         throw new Error(`Missing required field: ${field}`);
@@ -288,7 +299,7 @@ class ServiceTitanService {
    * Simulate API delay
    */
   async _simulateDelay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -315,7 +326,7 @@ class ServiceTitanService {
     };
 
     let description = problemDescriptions[bookingData.problemType] || problemDescriptions.other;
-    
+
     if (bookingData.doorCount > 1) {
       description += ` (${bookingData.doorCount} doors)`;
     }
@@ -350,7 +361,7 @@ class ServiceTitanService {
    */
   _getBusinessUnit(zipCode) {
     const zip = parseInt(zipCode);
-    
+
     if (zip >= 85001 && zip <= 85099) {
       return 'Phoenix_Central';
     } else if (zip >= 85201 && zip <= 85299) {
