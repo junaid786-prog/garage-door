@@ -1,8 +1,10 @@
+const logger = require('../utils/logger');
+
 const sendEmail = async (job) => {
   const { bookingId, emailData } = job.data;
 
   try {
-    console.log(`📧 Sending email for booking ${bookingId}`);
+    logger.info('Sending email', { bookingId, jobId: job.id });
 
     // TODO: Implement Klaviyo API integration
     // const klaviyoService = require('../services/klaviyo.service');
@@ -18,7 +20,7 @@ const sendEmail = async (job) => {
       bookingId,
     };
 
-    console.log(`✅ Email sent for booking ${bookingId}: ${mockResult.messageId}`);
+    logger.info('Email sent', { bookingId, messageId: mockResult.messageId, jobId: job.id });
 
     // Log notification
     // const notificationService = require('../services/notification.service');
@@ -32,7 +34,7 @@ const sendEmail = async (job) => {
 
     return mockResult;
   } catch (error) {
-    console.error(`❌ Email sending failed for booking ${bookingId}:`, error.message);
+    logger.error('Email sending failed', { bookingId, error, jobId: job.id });
     throw error;
   }
 };
@@ -41,11 +43,11 @@ const sendSMS = async (job) => {
   const { bookingId, smsData } = job.data;
 
   try {
-    console.log(`📱 Sending SMS for booking ${bookingId}`);
+    logger.info('Sending SMS', { bookingId, jobId: job.id });
 
     // Check if customer opted in for SMS
     if (!smsData.optedIn) {
-      console.log(`⚠️ Customer not opted in for SMS for booking ${bookingId}`);
+      logger.warn('Customer not opted in for SMS', { bookingId, jobId: job.id });
       return { status: 'skipped', reason: 'not_opted_in' };
     }
 
@@ -63,7 +65,7 @@ const sendSMS = async (job) => {
       bookingId,
     };
 
-    console.log(`✅ SMS sent for booking ${bookingId}: ${mockResult.messageId}`);
+    logger.info('SMS sent', { bookingId, messageId: mockResult.messageId, jobId: job.id });
 
     // Log notification
     // const notificationService = require('../services/notification.service');
@@ -77,7 +79,7 @@ const sendSMS = async (job) => {
 
     return mockResult;
   } catch (error) {
-    console.error(`❌ SMS sending failed for booking ${bookingId}:`, error.message);
+    logger.error('SMS sending failed', { bookingId, error, jobId: job.id });
     throw error;
   }
 };
@@ -86,7 +88,7 @@ const sendConfirmation = async (job) => {
   const { bookingId, confirmationData } = job.data;
 
   try {
-    console.log(`📋 Sending confirmation for booking ${bookingId}`);
+    logger.info('Sending confirmation', { bookingId, jobId: job.id });
 
     const results = [];
 
@@ -125,7 +127,7 @@ const sendConfirmation = async (job) => {
       results.push({ type: 'sms', result: smsResult });
     }
 
-    console.log(`✅ Confirmation sent for booking ${bookingId}`);
+    logger.info('Confirmation sent', { bookingId, jobId: job.id });
 
     return {
       bookingId,
@@ -133,7 +135,7 @@ const sendConfirmation = async (job) => {
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error(`❌ Confirmation sending failed for booking ${bookingId}:`, error.message);
+    logger.error('Confirmation sending failed', { bookingId, error, jobId: job.id });
     throw error;
   }
 };

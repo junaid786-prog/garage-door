@@ -1,6 +1,7 @@
 const rateLimit = require('express-rate-limit');
 const { getRedisClient } = require('../config/redis');
 const env = require('../config/env');
+const logger = require('../utils/logger');
 
 /**
  * Redis Store for express-rate-limit v8
@@ -99,11 +100,11 @@ const initializeRateLimiter = () => {
       },
     });
 
-    console.log('✅ Rate limiter initialized with Redis store');
+    logger.info('Rate limiter initialized with Redis store');
     return rateLimiterInstance;
   } catch (error) {
-    console.error('❌ Failed to initialize rate limiter:', error.message);
-    console.warn('⚠️  Rate limiting disabled - Redis connection required');
+    logger.error('Failed to initialize rate limiter', { error });
+    logger.warn('Rate limiting disabled - Redis connection required');
     return null;
   }
 };
@@ -167,7 +168,7 @@ const createStrictRateLimiter = () => {
       },
     });
   } catch (error) {
-    console.error('❌ Failed to create strict rate limiter:', error.message);
+    logger.error('Failed to create strict rate limiter', { error });
     return (req, res, next) => next();
   }
 };

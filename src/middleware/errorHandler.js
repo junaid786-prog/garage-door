@@ -1,5 +1,6 @@
 const APIResponse = require('../utils/response');
 const env = require('../config/env');
+const logger = require('../utils/logger');
 
 /**
  * Global error handler middleware
@@ -9,8 +10,13 @@ const env = require('../config/env');
  * @param {Response} res
  * @param {NextFunction} next
  */
-const errorHandler = (err, _req, res, _next) => {
-  console.error('Error:', err);
+const errorHandler = (err, req, res, _next) => {
+  logger.error('Request error', {
+    error: err,
+    path: req.path,
+    method: req.method,
+    statusCode: err.status || 500,
+  });
 
   // Operational errors (known errors)
   if (err.isOperational) {

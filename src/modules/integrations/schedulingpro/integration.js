@@ -41,7 +41,7 @@ class SchedulingProIntegration {
         },
       };
     } catch (error) {
-      console.error('[SchedulingPro Integration] Get slots failed:', {
+      logger.error('[SchedulingPro Integration] Get slots failed:', {
         zipCode,
         error: error.message,
       });
@@ -65,7 +65,7 @@ class SchedulingProIntegration {
     try {
       const result = await schedulingProService.reserveSlot(slotId, bookingId, reservationMinutes);
 
-      console.log('[SchedulingPro Integration] Slot reserved successfully:', {
+      logger.info('[SchedulingPro Integration] Slot reserved successfully:', {
         slotId,
         bookingId,
         expiresAt: result.reservation.expiresAt,
@@ -83,7 +83,7 @@ class SchedulingProIntegration {
         slot: result.slot,
       };
     } catch (error) {
-      console.error('[SchedulingPro Integration] Slot reservation failed:', {
+      logger.error('[SchedulingPro Integration] Slot reservation failed:', {
         slotId,
         bookingId,
         error: error.message,
@@ -107,7 +107,7 @@ class SchedulingProIntegration {
     try {
       const result = await schedulingProService.confirmSlot(slotId, bookingId);
 
-      console.log('[SchedulingPro Integration] Slot confirmed successfully:', {
+      logger.info('[SchedulingPro Integration] Slot confirmed successfully:', {
         slotId,
         bookingId,
         confirmedAt: result.confirmedAt,
@@ -121,7 +121,7 @@ class SchedulingProIntegration {
         confirmedAt: result.confirmedAt,
       };
     } catch (error) {
-      console.error('[SchedulingPro Integration] Slot confirmation failed:', {
+      logger.error('[SchedulingPro Integration] Slot confirmation failed:', {
         slotId,
         bookingId,
         error: error.message,
@@ -145,7 +145,7 @@ class SchedulingProIntegration {
     try {
       const result = await schedulingProService.cancelSlot(slotId, bookingId);
 
-      console.log('[SchedulingPro Integration] Slot cancelled successfully:', {
+      logger.info('[SchedulingPro Integration] Slot cancelled successfully:', {
         slotId,
         bookingId,
         cancelledType: result.cancelledType,
@@ -159,7 +159,7 @@ class SchedulingProIntegration {
         cancelledAt: result.cancelledAt,
       };
     } catch (error) {
-      console.error('[SchedulingPro Integration] Slot cancellation failed:', {
+      logger.error('[SchedulingPro Integration] Slot cancellation failed:', {
         slotId,
         bookingId,
         error: error.message,

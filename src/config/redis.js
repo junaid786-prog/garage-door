@@ -1,5 +1,6 @@
 const Redis = require('ioredis');
 const env = require('./env');
+const logger = require('../utils/logger');
 
 class RedisConnection {
   constructor() {
@@ -60,22 +61,22 @@ class RedisConnection {
       }
 
       this.client.on('connect', () => {
-        console.log('✅ Redis connected successfully');
+        logger.info('Redis connected successfully');
         this.isConnected = true;
       });
 
       this.client.on('error', (err) => {
-        console.error('❌ Redis connection error:', err.message);
+        logger.error('Redis connection error', { error: err });
         this.isConnected = false;
       });
 
       this.client.on('close', () => {
-        console.log('🔌 Redis connection closed');
+        logger.info('Redis connection closed');
         this.isConnected = false;
       });
 
       this.client.on('reconnecting', () => {
-        console.log('🔄 Redis reconnecting...');
+        logger.info('Redis reconnecting');
       });
 
       await this.client.connect();
@@ -85,7 +86,7 @@ class RedisConnection {
 
       return this.client;
     } catch (error) {
-      console.error('❌ Failed to connect to Redis:', error.message);
+      logger.error('Failed to connect to Redis', { error });
       throw error;
     }
   }
@@ -95,7 +96,7 @@ class RedisConnection {
       await this.client.quit();
       this.client = null;
       this.isConnected = false;
-      console.log('🔌 Redis disconnected');
+      logger.info('Redis disconnected');
     }
   }
 
@@ -112,7 +113,7 @@ class RedisConnection {
       const result = await this.client.ping();
       return result === 'PONG';
     } catch (error) {
-      console.error('Redis health check failed:', error.message);
+      logger.error('Redis health check failed', { error });
       return false;
     }
   }

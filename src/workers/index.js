@@ -4,6 +4,7 @@ const notificationWorkers = require('./notification.workers');
 const analyticsWorkers = require('./analytics.workers');
 const integrationWorkers = require('./integration.workers');
 const env = require('../config/env');
+const logger = require('../utils/logger');
 
 class WorkerManager {
   constructor() {
@@ -14,20 +15,20 @@ class WorkerManager {
   async startWorkers() {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     if (this.isRunning) {
-      console.log('⚠️ Workers already running');
+      logger.warn('Workers already running');
       return;
     }
 
     // In development, only start workers if NODE_ENV is production or explicitly enabled
     if (!env.ENABLE_QUEUE_WORKERS) {
-      console.log(
-        '🔇 Queue workers disabled in development. Set ENABLE_QUEUE_WORKERS=true to enable.'
-      );
+      logger.info('Queue workers disabled in development', {
+        hint: 'Set ENABLE_QUEUE_WORKERS=true to enable',
+      });
       this.isRunning = false;
       return;
     }
 
-    console.log('🚀 Starting queue workers...');
+    logger.info('Starting queue workers');
 
     try {
       // Start booking workers (1 concurrent for dev)
@@ -43,12 +44,12 @@ class WorkerManager {
       this.startIntegrationWorkers(1);
 
       this.isRunning = true;
-      console.log('✅ All queue workers started successfully');
+      logger.info('All queue workers started successfully');
 
       // Setup graceful shutdown
       this.setupGracefulShutdown();
     } catch (error) {
-      console.error('❌ Failed to start workers:', error.message);
+      logger.error('Failed to start workers', { error });
       throw error;
     }
   }
@@ -69,7 +70,7 @@ class WorkerManager {
     // Process booking validation
     bookingQueue.process('validate-booking', concurrency, bookingWorkers.validateBooking);
 
-    console.log(`📋 Started ${concurrency} booking workers`);
+    logger.info('Started booking workers', { concurrency });
   }
 
   startNotificationWorkers(concurrency = 2) {
@@ -88,7 +89,7 @@ class WorkerManager {
       notificationWorkers.sendConfirmation
     );
 
-    console.log(`📧 Started ${concurrency} notification workers`);
+    logger.info('Started notification workers', { concurrency });
   }
 
   startAnalyticsWorkers(concurrency = 1) {
@@ -103,7 +104,7 @@ class WorkerManager {
     // Process attribution data
     analyticsQueue.process('process-attribution', concurrency, analyticsWorkers.processAttribution);
 
-    console.log(`📊 Started ${concurrency} analytics workers`);
+    logger.info('Started analytics workers', { concurrency });
   }
 
   startIntegrationWorkers(concurrency = 2) {
@@ -122,25 +123,25 @@ class WorkerManager {
     // Process retry failed jobs
     integrationQueue.process('retry-failed-job', concurrency, integrationWorkers.retryFailedJob);
 
-    console.log(`🔗 Started ${concurrency} integration workers`);
+    logger.info('Started integration workers', { concurrency });
   }
 
   async stopWorkers() {
     if (!this.isRunning) {
-      console.log('⚠️ Workers not running');
+      logger.warn('Workers not running');
       return;
     }
 
-    console.log('🛑 Stopping queue workers...');
+    logger.info('Stopping queue workers');
 
     try {
       // Close all queues gracefully
       await queueManager.closeAll();
 
       this.isRunning = false;
-      console.log('✅ All workers stopped successfully');
+      logger.info('All workers stopped successfully');
     } catch (error) {
-      console.error('❌ Error stopping workers:', error.message);
+      logger.error('Error stopping workers', { error });
       throw error;
     }
   }
@@ -173,14 +174,14 @@ class WorkerManager {
 
   setupGracefulShutdown() {
     const gracefulShutdown = async (signal) => {
-      console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+      logger.info('Received shutdown signal, starting graceful shutdown', { signal });
 
       try {
         await this.stopWorkers();
-        console.log('✅ Graceful shutdown completed');
+        logger.info('Graceful shutdown completed');
         process.exit(0);
       } catch (error) {
-        console.error('❌ Error during graceful shutdown:', error.message);
+        logger.error('Error during graceful shutdown', { error });
         process.exit(1);
       }
     };

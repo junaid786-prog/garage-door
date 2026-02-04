@@ -180,7 +180,7 @@ const validateWebhook = (req, res, next) => {
   }
 
   // For simulation, just log and continue
-  console.log('Webhook signature received:', signature);
+  logger.info('Webhook signature received:', signature);
   next();
 };
 

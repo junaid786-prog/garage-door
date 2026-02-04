@@ -1,5 +1,6 @@
 require('dotenv').config();
 const env = require('./env');
+const logger = require('../utils/logger');
 
 const config = {
   development: {
@@ -24,7 +25,7 @@ const config = {
       acquire: env.DB_POOL_ACQUIRE,
       evict: 1000,
     },
-    logging: env.NODE_ENV === 'development' ? console.log : false,
+    logging: env.NODE_ENV === 'development' ? (msg) => logger.database('query', { query: msg }) : false,
     define: {
       underscored: true,
       timestamps: true,

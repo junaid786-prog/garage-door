@@ -1,4 +1,5 @@
 const { getRedisClient } = require('./redis');
+const logger = require('../utils/logger');
 
 class CacheService {
   constructor() {
@@ -16,7 +17,7 @@ class CacheService {
       const value = await client.get(key);
       return value ? JSON.parse(value) : null;
     } catch (error) {
-      console.error(`Cache GET error for key ${key}:`, error.message);
+      logger.error('Cache GET error', { key, error });
       return null;
     }
   }
@@ -34,7 +35,7 @@ class CacheService {
 
       return true;
     } catch (error) {
-      console.error(`Cache SET error for key ${key}:`, error.message);
+      logger.error('Cache SET error', { key, error });
       return false;
     }
   }
@@ -45,7 +46,7 @@ class CacheService {
       await client.del(key);
       return true;
     } catch (error) {
-      console.error(`Cache DEL error for key ${key}:`, error.message);
+      logger.error('Cache DEL error', { key, error });
       return false;
     }
   }
@@ -56,7 +57,7 @@ class CacheService {
       const result = await client.exists(key);
       return result === 1;
     } catch (error) {
-      console.error(`Cache EXISTS error for key ${key}:`, error.message);
+      logger.error('Cache EXISTS error', { key, error });
       return false;
     }
   }
@@ -104,7 +105,7 @@ class CacheService {
         resetTime: await client.ttl(key),
       };
     } catch (error) {
-      console.error(`Rate limit error for ${identifier}:`, error.message);
+      logger.error('Rate limit error', { identifier, error });
       return { allowed: true, count: 0, remaining: limit, resetTime: window };
     }
   }
@@ -138,7 +139,7 @@ class CacheService {
 
       return keys.length;
     } catch (error) {
-      console.error(`Cache pattern delete error for ${pattern}:`, error.message);
+      logger.error('Cache pattern delete error', { pattern, error });
       return 0;
     }
   }
@@ -156,7 +157,7 @@ class CacheService {
         connected: true,
       };
     } catch (error) {
-      console.error('Cache stats error:', error.message);
+      logger.error('Cache stats error', { error });
       return { connected: false, error: error.message };
     }
   }

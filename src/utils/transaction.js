@@ -1,4 +1,5 @@
 const sequelize = require('../database/connection');
+const logger = require('./logger');
 
 /**
  * Transaction wrapper utility
@@ -65,7 +66,7 @@ const withTransaction = async (callback, options = {}) => {
         await transaction.rollback();
       } catch (rollbackError) {
         // Log rollback error but throw original error
-        console.error('Transaction rollback failed:', rollbackError);
+        logger.error('Transaction rollback failed', { error: rollbackError });
       }
     }
 

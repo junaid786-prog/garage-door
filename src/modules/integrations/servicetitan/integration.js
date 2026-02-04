@@ -1,4 +1,5 @@
 const serviceTitanService = require('./service');
+const logger = require('../../../utils/logger');
 
 /**
  * ServiceTitan integration wrapper for internal use
@@ -32,9 +33,9 @@ class ServiceTitanIntegration {
         createdAt: job.createdAt,
       };
     } catch (error) {
-      console.error('[ServiceTitan Integration] Job creation failed:', {
+      logger.error('ServiceTitan job creation failed', {
         bookingId: bookingData.id,
-        error: error.message,
+        error,
       });
 
       return {
@@ -62,10 +63,10 @@ class ServiceTitanIntegration {
         updatedAt: updatedJob.updatedAt,
       };
     } catch (error) {
-      console.error('[ServiceTitan Integration] Status update failed:', {
+      logger.error('ServiceTitan status update failed', {
         jobId: serviceTitanJobId,
         status,
-        error: error.message,
+        error,
       });
 
       return {
@@ -94,10 +95,10 @@ class ServiceTitanIntegration {
         cancelledAt: cancelledJob.cancelledAt,
       };
     } catch (error) {
-      console.error('[ServiceTitan Integration] Job cancellation failed:', {
+      logger.error('ServiceTitan job cancellation failed', {
         jobId: serviceTitanJobId,
         reason,
-        error: error.message,
+        error,
       });
 
       return {

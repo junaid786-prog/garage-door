@@ -7,25 +7,25 @@ const bookingService = require('../../bookings/service');
 const serviceTitanIntegration = require('./integration');
 
 async function demonstrateIntegration() {
-  console.log('🚀 ServiceTitan Integration Demo\n');
+  logger.info('🚀 ServiceTitan Integration Demo\n');
 
   try {
     // Test 1: Test ServiceTitan connection
-    console.log('1️⃣ Testing ServiceTitan Connection...');
+    logger.info('1️⃣ Testing ServiceTitan Connection...');
     const connectionTest = await serviceTitanIntegration.testConnection();
 
     if (connectionTest.success) {
-      console.log('✅ ServiceTitan connection successful');
-      console.log(`   - Authenticated: ${connectionTest.authenticated}`);
-      console.log(`   - Health: ${connectionTest.health}`);
-      console.log(`   - Jobs created: ${connectionTest.jobsCreated}\n`);
+      logger.info('✅ ServiceTitan connection successful');
+      logger.info(`   - Authenticated: ${connectionTest.authenticated}`);
+      logger.info(`   - Health: ${connectionTest.health}`);
+      logger.info(`   - Jobs created: ${connectionTest.jobsCreated}\n`);
     } else {
-      console.log('❌ ServiceTitan connection failed:', connectionTest.error);
+      logger.info('❌ ServiceTitan connection failed:', connectionTest.error);
       return;
     }
 
     // Test 2: Create a booking (this will automatically create ServiceTitan job)
-    console.log('2️⃣ Creating a booking with ServiceTitan integration...');
+    logger.info('2️⃣ Creating a booking with ServiceTitan integration...');
 
     const sampleBookingData = {
       // Service details
@@ -80,46 +80,46 @@ async function demonstrateIntegration() {
     };
 
     const booking = await bookingService.createBooking(sampleBookingData);
-    console.log('✅ Booking created successfully');
-    console.log(`   - Booking ID: ${booking.id}`);
-    console.log(`   - Status: ${booking.status}`);
+    logger.info('✅ Booking created successfully');
+    logger.info(`   - Booking ID: ${booking.id}`);
+    logger.info(`   - Status: ${booking.status}`);
 
     if (booking.serviceTitanJobId) {
-      console.log(`   - ServiceTitan Job ID: ${booking.serviceTitanJobId}`);
-      console.log(`   - ServiceTitan Job Number: ${booking.serviceTitanJobNumber}`);
-      console.log(`   - ServiceTitan Status: ${booking.serviceTitanStatus}\n`);
+      logger.info(`   - ServiceTitan Job ID: ${booking.serviceTitanJobId}`);
+      logger.info(`   - ServiceTitan Job Number: ${booking.serviceTitanJobNumber}`);
+      logger.info(`   - ServiceTitan Status: ${booking.serviceTitanStatus}\n`);
     } else {
-      console.log(`   - ServiceTitan Status: ${booking.serviceTitanStatus}`);
-      console.log(`   - ServiceTitan Error: ${booking.serviceTitanError}\n`);
+      logger.info(`   - ServiceTitan Status: ${booking.serviceTitanStatus}`);
+      logger.info(`   - ServiceTitan Error: ${booking.serviceTitanError}\n`);
     }
 
     // Test 3: Get ServiceTitan job details
     if (booking.serviceTitanJobId) {
-      console.log('3️⃣ Retrieving ServiceTitan job details...');
+      logger.info('3️⃣ Retrieving ServiceTitan job details...');
 
       const jobDetails = await bookingService.getServiceTitanJobDetails(booking.id);
-      console.log('✅ ServiceTitan job details retrieved');
-      console.log(`   - Job Number: ${jobDetails.serviceTitan.jobNumber}`);
-      console.log(`   - Priority: ${jobDetails.serviceTitan.priority}`);
-      console.log(`   - Customer: ${jobDetails.serviceTitan.customer.name}`);
-      console.log(`   - Description: ${jobDetails.serviceTitan.description}`);
-      console.log(
+      logger.info('✅ ServiceTitan job details retrieved');
+      logger.info(`   - Job Number: ${jobDetails.serviceTitan.jobNumber}`);
+      logger.info(`   - Priority: ${jobDetails.serviceTitan.priority}`);
+      logger.info(`   - Customer: ${jobDetails.serviceTitan.customer.name}`);
+      logger.info(`   - Description: ${jobDetails.serviceTitan.description}`);
+      logger.info(
         `   - Estimated Duration: ${jobDetails.serviceTitan.estimatedDuration} minutes\n`
       );
 
       // Test 4: Update job status
-      console.log('4️⃣ Updating ServiceTitan job status...');
+      logger.info('4️⃣ Updating ServiceTitan job status...');
 
       const updatedBooking = await bookingService.updateServiceTitanStatus(
         booking.id,
         'dispatched'
       );
-      console.log('✅ ServiceTitan status updated');
-      console.log(`   - New Status: ${updatedBooking.serviceTitanStatus}\n`);
+      logger.info('✅ ServiceTitan status updated');
+      logger.info(`   - New Status: ${updatedBooking.serviceTitanStatus}\n`);
     }
 
     // Test 5: Test error scenario
-    console.log('5️⃣ Testing error scenario...');
+    logger.info('5️⃣ Testing error scenario...');
 
     const errorBookingData = {
       ...sampleBookingData,
@@ -131,22 +131,22 @@ async function demonstrateIntegration() {
     };
 
     const errorBooking = await bookingService.createBooking(errorBookingData);
-    console.log('✅ Error booking created (demonstrates error handling)');
-    console.log(`   - Booking ID: ${errorBooking.id}`);
-    console.log(`   - ServiceTitan Status: ${errorBooking.serviceTitanStatus}`);
-    console.log(`   - ServiceTitan Error: ${errorBooking.serviceTitanError}\n`);
+    logger.info('✅ Error booking created (demonstrates error handling)');
+    logger.info(`   - Booking ID: ${errorBooking.id}`);
+    logger.info(`   - ServiceTitan Status: ${errorBooking.serviceTitanStatus}`);
+    logger.info(`   - ServiceTitan Error: ${errorBooking.serviceTitanError}\n`);
 
-    console.log('🎉 ServiceTitan Integration Demo Complete!\n');
+    logger.info('🎉 ServiceTitan Integration Demo Complete!\n');
 
-    console.log('📋 Summary:');
-    console.log('- ServiceTitan is integrated directly into booking creation');
-    console.log('- Jobs are automatically created when bookings are made');
-    console.log('- Error handling preserves booking even if ServiceTitan fails');
-    console.log('- Status updates can be made through booking service');
-    console.log('- Ready for real ServiceTitan API (just replace service implementation)\n');
+    logger.info('📋 Summary:');
+    logger.info('- ServiceTitan is integrated directly into booking creation');
+    logger.info('- Jobs are automatically created when bookings are made');
+    logger.info('- Error handling preserves booking even if ServiceTitan fails');
+    logger.info('- Status updates can be made through booking service');
+    logger.info('- Ready for real ServiceTitan API (just replace service implementation)\n');
   } catch (error) {
-    console.error('❌ Demo failed:', error.message);
-    console.error('Stack:', error.stack);
+    logger.error('❌ Demo failed:', error.message);
+    logger.error('Stack:', error.stack);
   }
 }
 

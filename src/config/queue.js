@@ -1,5 +1,6 @@
 const Queue = require('bull');
 const env = require('./env');
+const logger = require('../utils/logger');
 
 class QueueManager {
   constructor() {
@@ -68,29 +69,27 @@ class QueueManager {
 
       // Queue event handlers
       this.queues[queueName].on('error', (error) => {
-        console.log(error);
-
-        console.error(`❌ Queue ${queueName} error:`, error.message);
+        logger.error('Queue error', { queueName, error });
       });
 
       this.queues[queueName].on('waiting', (jobId) => {
-        console.log(`⏳ Job ${jobId} waiting in ${queueName}`);
+        logger.debug('Job waiting', { jobId, queueName });
       });
 
       this.queues[queueName].on('active', (job) => {
-        console.log(`🚀 Job ${job.id} started in ${queueName}`);
+        logger.debug('Job started', { jobId: job.id, queueName });
       });
 
       this.queues[queueName].on('completed', (job, _result) => {
-        console.log(`✅ Job ${job.id} completed in ${queueName}`);
+        logger.info('Job completed', { jobId: job.id, queueName });
       });
 
       this.queues[queueName].on('failed', (job, err) => {
-        console.error(`❌ Job ${job.id} failed in ${queueName}:`, err.message);
+        logger.error('Job failed', { jobId: job.id, queueName, error: err });
       });
 
       this.queues[queueName].on('stalled', (job) => {
-        console.warn(`⚠️ Job ${job.id} stalled in ${queueName}`);
+        logger.warn('Job stalled', { jobId: job.id, queueName });
       });
     }
 
@@ -135,10 +134,10 @@ class QueueManager {
 
     try {
       const job = await queue.add(jobType, data, jobOptions);
-      console.log(`📋 Job ${job.id} added to ${queueName}: ${jobType}`);
+      logger.debug('Job added to queue', { jobId: job.id, queueName, jobType });
       return job;
     } catch (error) {
-      console.error(`Failed to add job to ${queueName}:`, error.message);
+      logger.error('Failed to add job to queue', { queueName, error });
       throw error;
     }
   }
@@ -205,7 +204,7 @@ class QueueManager {
         delayed: delayed.length,
       };
     } catch (error) {
-      console.error(`Error getting stats for ${queueName}:`, error.message);
+      logger.error('Error getting queue stats', { queueName, error });
       return null;
     }
   }
@@ -228,9 +227,9 @@ class QueueManager {
     try {
       await queue.clean(grace, 'completed');
       await queue.clean(grace, 'failed');
-      console.log(`🧹 Cleaned queue ${queueName}`);
+      logger.info('Queue cleaned', { queueName });
     } catch (error) {
-      console.error(`Error cleaning queue ${queueName}:`, error.message);
+      logger.error('Error cleaning queue', { queueName, error });
     }
   }
 
@@ -244,30 +243,30 @@ class QueueManager {
   async pauseQueue(queueName) {
     const queue = this.getQueue(queueName);
     await queue.pause();
-    console.log(`⏸️ Queue ${queueName} paused`);
+    logger.info('Queue paused', { queueName });
   }
 
   async resumeQueue(queueName) {
     const queue = this.getQueue(queueName);
     await queue.resume();
-    console.log(`▶️ Queue ${queueName} resumed`);
+    logger.info('Queue resumed', { queueName });
   }
 
   // Graceful shutdown
   async closeAll() {
-    console.log('🔄 Closing all queues...');
+    logger.info('Closing all queues');
 
     for (const [queueName, queue] of Object.entries(this.queues)) {
       try {
         await queue.close();
-        console.log(`✅ Queue ${queueName} closed`);
+        logger.info('Queue closed', { queueName });
       } catch (error) {
-        console.error(`❌ Error closing queue ${queueName}:`, error.message);
+        logger.error('Error closing queue', { queueName, error });
       }
     }
 
     this.queues = {};
-    console.log('🔌 All queues closed');
+    logger.info('All queues closed');
   }
 
   // Health check

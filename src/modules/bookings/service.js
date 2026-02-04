@@ -5,6 +5,7 @@ const schedulingService = require('../scheduling/service');
 const env = require('../../config/env');
 const { withTransaction } = require('../../utils/transaction');
 const { ConflictError } = require('../../utils/errors');
+const logger = require('../../utils/logger');
 
 /**
  * Booking service - handles booking business logic
@@ -67,13 +68,13 @@ class BookingService {
               { transaction }
             );
 
-            console.log('[Booking Service] ServiceTitan job created successfully:', {
+            logger.info('ServiceTitan job created successfully', {
               bookingId: booking.id,
               serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
               jobNumber: serviceTitanResult.jobNumber,
             });
           } else {
-            console.error('[Booking Service] ServiceTitan job creation failed:', {
+            logger.error('ServiceTitan job creation failed', {
               bookingId: booking.id,
               error: serviceTitanResult.error,
               shouldRetry: serviceTitanResult.shouldRetry,
@@ -91,13 +92,13 @@ class BookingService {
             // If retryable, could queue for background retry here
             if (serviceTitanResult.shouldRetry) {
               // TODO: Queue job for retry
-              console.log('[Booking Service] Queuing ServiceTitan job for retry');
+              logger.info('Queuing ServiceTitan job for retry', { bookingId: booking.id });
             }
           }
 
           // Handle slot confirmation if auto-confirm is enabled
           if (env.SCHEDULING_AUTO_CONFIRM_SLOTS && booking.slotId) {
-            console.log('[Booking Service] Auto-confirming reserved slot:', {
+            logger.info('Auto-confirming reserved slot', {
               bookingId: booking.id,
               slotId: booking.slotId,
             });
@@ -108,12 +109,12 @@ class BookingService {
             );
 
             if (confirmResult.success) {
-              console.log('[Booking Service] Slot confirmed successfully:', {
+              logger.info('Slot confirmed successfully', {
                 bookingId: booking.id,
                 slotId: booking.slotId,
               });
             } else {
-              console.error('[Booking Service] Slot confirmation failed:', {
+              logger.error('Slot confirmation failed', {
                 bookingId: booking.id,
                 slotId: booking.slotId,
                 error: confirmResult.error,
@@ -133,7 +134,7 @@ class BookingService {
       // Handle unique constraint violation (double-booking)
       if (error instanceof UniqueConstraintError) {
         // Log the error fields for debugging
-        console.log('[Booking Service] Unique constraint error:', {
+        logger.warn('Unique constraint violation - slot already booked', {
           fields: error.fields,
           message: error.message,
           parent: error.parent?.detail
@@ -386,13 +387,13 @@ class BookingService {
           updatedAt: new Date(),
         });
 
-        console.log('[Booking Service] ServiceTitan status updated:', {
+        logger.info('ServiceTitan status updated', {
           bookingId,
           serviceTitanJobId: booking.serviceTitanJobId,
           status: result.status,
         });
       } else {
-        console.error('[Booking Service] ServiceTitan status update failed:', {
+        logger.error('ServiceTitan status update failed', {
           bookingId,
           serviceTitanJobId: booking.serviceTitanJobId,
           error: result.error,
@@ -437,13 +438,13 @@ class BookingService {
           updatedAt: new Date(),
         });
 
-        console.log('[Booking Service] ServiceTitan job cancelled:', {
+        logger.info('ServiceTitan job cancelled', {
           bookingId,
           serviceTitanJobId: booking.serviceTitanJobId,
           reason: result.cancellationReason,
         });
       } else {
-        console.error('[Booking Service] ServiceTitan job cancellation failed:', {
+        logger.error('ServiceTitan job cancellation failed', {
           bookingId,
           serviceTitanJobId: booking.serviceTitanJobId,
           error: result.error,
@@ -493,7 +494,7 @@ class BookingService {
           serviceTitanError: null, // Clear any previous errors
         });
 
-        console.log('[Booking Service] ServiceTitan job retry successful:', {
+        logger.info('ServiceTitan job retry successful', {
           bookingId,
           serviceTitanJobId: result.serviceTitanJobId,
           jobNumber: result.jobNumber,

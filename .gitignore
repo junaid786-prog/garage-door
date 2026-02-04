@@ -3,6 +3,8 @@ node_modules/
 .env.local
 .env.production
 *.log
+logs/*
+!logs/.gitkeep
 .DS_Store
 coverage/
 dist/

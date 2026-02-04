@@ -1,8 +1,10 @@
+const logger = require('../utils/logger');
+
 const syncExternalData = async (job) => {
   const { syncType, syncData } = job.data;
 
   try {
-    console.log(`🔄 Syncing external data: ${syncType}`);
+    logger.info('Syncing external data', { syncType, jobId: job.id });
 
     let result = {};
 
@@ -54,11 +56,11 @@ const syncExternalData = async (job) => {
         throw new Error(`Unknown sync type: ${syncType}`);
     }
 
-    console.log(`✅ External data sync completed: ${syncType}`);
+    logger.info('External data sync completed', { syncType, jobId: job.id });
 
     return result;
   } catch (error) {
-    console.error(`❌ External data sync failed for ${syncType}:`, error.message);
+    logger.error('External data sync failed', { syncType, error, jobId: job.id });
     throw error;
   }
 };
@@ -67,7 +69,7 @@ const handleWebhook = async (job) => {
   const { webhookType, webhookData } = job.data;
 
   try {
-    console.log(`🎣 Handling webhook: ${webhookType}`);
+    logger.info('Handling webhook', { webhookType, jobId: job.id });
 
     let result = {};
 
@@ -121,11 +123,11 @@ const handleWebhook = async (job) => {
         throw new Error(`Unknown webhook type: ${webhookType}`);
     }
 
-    console.log(`✅ Webhook handled: ${webhookType}`);
+    logger.info('Webhook handled', { webhookType, jobId: job.id });
 
     return result;
   } catch (error) {
-    console.error(`❌ Webhook handling failed for ${webhookType}:`, error.message);
+    logger.error('Webhook handling failed', { webhookType, error, jobId: job.id });
     throw error;
   }
 };
@@ -134,7 +136,7 @@ const retryFailedJob = async (job) => {
   const { originalJobData, failureReason, attemptNumber } = job.data;
 
   try {
-    console.log(`🔄 Retrying failed job (attempt ${attemptNumber}): ${originalJobData.type}`);
+    logger.info('Retrying failed job', { attemptNumber, jobType: originalJobData.type, jobId: job.id });
 
     // Add exponential backoff delay
     const backoffDelay = Math.min(1000 * Math.pow(2, attemptNumber - 1), 30000); // Max 30 seconds
@@ -178,11 +180,11 @@ const retryFailedJob = async (job) => {
         throw new Error(`Cannot retry unknown job type: ${originalJobData.type}`);
     }
 
-    console.log(`✅ Failed job retry completed: ${originalJobData.type}`);
+    logger.info('Failed job retry completed', { jobType: originalJobData.type, jobId: job.id });
 
     return result;
   } catch (error) {
-    console.error(`❌ Job retry failed for ${originalJobData.type}:`, error.message);
+    logger.error('Job retry failed', { jobType: originalJobData.type, error, jobId: job.id });
     throw error;
   }
 };

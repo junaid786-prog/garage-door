@@ -137,7 +137,7 @@ class SchedulingProService {
 
     this.reservedSlots.set(slotId, reservation);
 
-    console.log(`[SchedulingPro] Slot reserved: ${slotId} for ${reservationMinutes} minutes`);
+    logger.info(`[SchedulingPro] Slot reserved: ${slotId} for ${reservationMinutes} minutes`);
 
     return {
       success: true,
@@ -186,7 +186,7 @@ class SchedulingProService {
     // Remove from reservations
     this.reservedSlots.delete(slotId);
 
-    console.log(`[SchedulingPro] Slot confirmed: ${slotId} for booking: ${bookingId}`);
+    logger.info(`[SchedulingPro] Slot confirmed: ${slotId} for booking: ${bookingId}`);
 
     return {
       success: true,
@@ -235,7 +235,7 @@ class SchedulingProService {
       );
     }
 
-    console.log(`[SchedulingPro] ${cancelledType} cancelled: ${slotId} for booking: ${bookingId}`);
+    logger.info(`[SchedulingPro] ${cancelledType} cancelled: ${slotId} for booking: ${bookingId}`);
 
     return {
       success: true,

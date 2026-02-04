@@ -2,6 +2,7 @@ const schedulingProIntegration = require('../integrations/schedulingpro/integrat
 const geoService = require('../geo/service'); // Will enhance this
 const env = require('../../config/env');
 const reservationService = require('../../services/reservationService');
+const logger = require('../../utils/logger');
 
 /**
  * Scheduling service - handles scheduling business logic with caching and reservations
@@ -53,7 +54,7 @@ class SchedulingService {
       const cachedResult = this._getFromCache(cacheKey);
 
       if (cachedResult) {
-        console.log(`[Scheduling Service] Cache hit for ${zipCode}`);
+        logger.debug('Slots cache hit', { zipCode, date });
         return {
           ...cachedResult,
           cached: true,
@@ -62,7 +63,7 @@ class SchedulingService {
       }
 
       // Fetch from SchedulingPro
-      console.log(`[Scheduling Service] Fetching slots from SchedulingPro for ${zipCode}`);
+      logger.debug('Fetching slots from SchedulingPro', { zipCode, date });
       const result = await schedulingProIntegration.getAvailableSlots(zipCode, startDate, endDate);
 
       if (!result.success) {
@@ -110,9 +111,10 @@ class SchedulingService {
 
       return response;
     } catch (error) {
-      console.error('[Scheduling Service] Get slots error:', {
+      logger.error('Failed to get time slots', {
         zipCode,
-        error: error.message,
+        date,
+        error,
       });
 
       return {
@@ -137,7 +139,7 @@ class SchedulingService {
 
       // If Redis is degraded, continue with SchedulingPro check only
       if (reservationCheck.degraded) {
-        console.log('[Scheduling Service] Redis degraded, using SchedulingPro only');
+        logger.warn('Redis degraded, using SchedulingPro only for reservation');
       } else if (reservationCheck.isReserved) {
         return {
           success: false,
@@ -176,12 +178,14 @@ class SchedulingService {
 
       // If Redis reservation failed but SchedulingPro succeeded, log warning but continue
       if (!redisResult.success && !redisResult.degraded) {
-        console.log(`[Scheduling Service] Warning: Redis reservation failed but SchedulingPro succeeded for slot: ${slotId}`);
+        logger.warn('Redis reservation failed but SchedulingPro succeeded', { slotId });
       }
 
-      console.log(
-        `[Scheduling Service] Slot reserved: ${slotId} for ${this.reservationTimeout} minutes`
-      );
+      logger.info('Slot reserved successfully', {
+        slotId,
+        timeoutMinutes: this.reservationTimeout,
+        bookingId,
+      });
 
       return {
         success: true,
@@ -195,10 +199,10 @@ class SchedulingService {
         slot: result.slot,
       };
     } catch (error) {
-      console.error('[Scheduling Service] Reservation error:', {
+      logger.error('Slot reservation failed', {
         slotId,
         bookingId,
-        error: error.message,
+        error,
       });
 
       return {
@@ -222,7 +226,7 @@ class SchedulingService {
 
       // If Redis is degraded, skip verification and proceed with SchedulingPro
       if (verifyResult.degraded) {
-        console.log('[Scheduling Service] Redis degraded, proceeding with SchedulingPro confirmation only');
+        logger.warn('Redis degraded, proceeding with SchedulingPro confirmation only');
       } else if (!verifyResult.valid) {
         return {
           success: false,
@@ -252,15 +256,15 @@ class SchedulingService {
         // Invalidate slots cache for this area
         this._invalidateSlotsCacheForSlot(slotId);
 
-        console.log(`[Scheduling Service] Slot confirmed: ${slotId} for booking: ${bookingId}`);
+        logger.info('Slot confirmed', { slotId, bookingId });
       }
 
       return result;
     } catch (error) {
-      console.error('[Scheduling Service] Confirmation error:', {
+      logger.error('Slot confirmation failed', {
         slotId,
         bookingId,
-        error: error.message,
+        error,
       });
 
       return {
@@ -292,15 +296,15 @@ class SchedulingService {
         // Invalidate slots cache for this area
         this._invalidateSlotsCacheForSlot(slotId);
 
-        console.log(`[Scheduling Service] Slot cancelled: ${slotId} for booking: ${bookingId}`);
+        logger.info('Slot cancelled', { slotId, bookingId });
       }
 
       return result;
     } catch (error) {
-      console.error('[Scheduling Service] Cancellation error:', {
+      logger.error('Slot cancellation failed', {
         slotId,
         bookingId,
-        error: error.message,
+        error,
       });
 
       return {
@@ -346,9 +350,9 @@ class SchedulingService {
         serviceHours: schedulingValidation.serviceHours,
       };
     } catch (error) {
-      console.error('[Scheduling Service] Service availability check error:', {
+      logger.error('Service availability check failed', {
         zipCode,
-        error: error.message,
+        error,
       });
 
       return {
@@ -367,7 +371,7 @@ class SchedulingService {
     try {
       const result = await reservationService.getAllReservations();
       if (!result.success) {
-        console.error('[Scheduling Service] Failed to get reservations:', result.error);
+        logger.error('Failed to get reservations', { error: result.error });
         return [];
       }
 
@@ -381,7 +385,7 @@ class SchedulingService {
         ttlSeconds: r.ttlSeconds,
       }));
     } catch (error) {
-      console.error('[Scheduling Service] Get reservations error:', error.message);
+      logger.error('Failed to get reservations', { error });
       return [];
     }
   }
@@ -395,19 +399,19 @@ class SchedulingService {
     try {
       const result = await reservationService.cleanupExpired();
       if (!result.success) {
-        console.error('[Scheduling Service] Cleanup check failed:', result.error);
+        logger.error('Cleanup check failed', { error: result.error });
         return 0;
       }
 
       if (result.cleaned > 0) {
-        console.log(
-          `[Scheduling Service] ${result.cleaned} reservations expiring soon (Redis TTL handles cleanup)`
-        );
+        logger.debug('Reservations expiring soon (Redis TTL handles cleanup)', {
+          count: result.cleaned,
+        });
       }
 
       return result.cleaned || 0;
     } catch (error) {
-      console.error('[Scheduling Service] Cleanup error:', error.message);
+      logger.error('Cleanup failed', { error });
       return 0;
     }
   }
@@ -470,7 +474,7 @@ class SchedulingService {
   _invalidateSlotsCacheForSlot(slotId) {
     // Extract date and ZIP code from slot ID if possible
     // For simplicity, clear all cache (in production, be more specific)
-    console.log(`[Scheduling Service] Invalidating slots cache due to slot change: ${slotId}`);
+    logger.debug('Invalidating slots cache due to slot change', { slotId });
     this.slotsCache.clear();
   }
 }

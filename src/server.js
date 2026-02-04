@@ -4,6 +4,7 @@ const { connectRedis } = require('./config/redis');
 const { connectDB, closeDB } = require('./database/connection');
 const workerManager = require('./workers');
 const { initializeRateLimiter } = require('./middleware/rateLimiter');
+const logger = require('./utils/logger');
 
 const PORT = config.port;
 
@@ -23,16 +24,16 @@ const startServer = async () => {
 
     // Then start the server
     const server = app.listen(PORT, () => {
-      console.log('=================================');
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📝 Environment: ${config.env}`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-      console.log('=================================');
+      logger.info('Server started successfully', {
+        port: PORT,
+        environment: config.env,
+        healthCheck: `http://localhost:${PORT}/health`,
+      });
     });
 
     return server;
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    logger.error('Failed to start server', { error });
     process.exit(1);
   }
 };
@@ -43,24 +44,24 @@ startServer()
      * Graceful shutdown
      */
     process.on('SIGTERM', () => {
-      console.log('SIGTERM received, shutting down gracefully...');
+      logger.info('SIGTERM received, shutting down gracefully');
       server.close(async () => {
         await closeDB();
-        console.log('Server and database closed');
+        logger.info('Server and database closed');
         process.exit(0);
       });
     });
 
     process.on('SIGINT', () => {
-      console.log('\nSIGINT received, shutting down gracefully...');
+      logger.info('SIGINT received, shutting down gracefully');
       server.close(async () => {
         await closeDB();
-        console.log('Server and database closed');
+        logger.info('Server and database closed');
         process.exit(0);
       });
     });
   })
   .catch((error) => {
-    console.error('❌ Failed to start application:', error);
+    logger.error('Failed to start application', { error });
     process.exit(1);
   });

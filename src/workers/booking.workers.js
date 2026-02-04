@@ -1,8 +1,10 @@
+const logger = require('../utils/logger');
+
 const createServiceTitanJob = async (job) => {
   const { bookingId, _bookingData } = job.data;
 
   try {
-    console.log(`🔧 Processing ServiceTitan job creation for booking ${bookingId}`);
+    logger.info('Processing ServiceTitan job creation', { bookingId, jobId: job.id });
 
     // TODO: Implement ServiceTitan API integration
     // const serviceTitanService = require('../services/servicetitan.service');
@@ -17,7 +19,7 @@ const createServiceTitanJob = async (job) => {
       bookingId,
     };
 
-    console.log(`✅ ServiceTitan job created: ${mockResult.jobId}`);
+    logger.info('ServiceTitan job created', { bookingId, serviceTitanJobId: mockResult.jobId });
 
     // Update booking with ServiceTitan job ID
     // const bookingService = require('../services/booking.service');
@@ -25,7 +27,7 @@ const createServiceTitanJob = async (job) => {
 
     return mockResult;
   } catch (error) {
-    console.error(`❌ ServiceTitan job creation failed for booking ${bookingId}:`, error.message);
+    logger.error('ServiceTitan job creation failed', { bookingId, error, jobId: job.id });
     throw error;
   }
 };
@@ -34,7 +36,7 @@ const confirmTimeSlot = async (job) => {
   const { bookingId, slotData } = job.data;
 
   try {
-    console.log(`⏰ Confirming time slot for booking ${bookingId}`);
+    logger.info('Confirming time slot', { bookingId, jobId: job.id });
 
     // TODO: Implement Scheduling Pro API integration
     // const schedulingService = require('../services/scheduling.service');
@@ -49,11 +51,11 @@ const confirmTimeSlot = async (job) => {
       bookingId,
     };
 
-    console.log(`✅ Time slot confirmed for booking ${bookingId}`);
+    logger.info('Time slot confirmed', { bookingId, jobId: job.id });
 
     return mockResult;
   } catch (error) {
-    console.error(`❌ Time slot confirmation failed for booking ${bookingId}:`, error.message);
+    logger.error('Time slot confirmation failed', { bookingId, error, jobId: job.id });
     throw error;
   }
 };
@@ -63,7 +65,7 @@ const validateBooking = async (job) => {
 
   await new Promise((resolve) => setTimeout(resolve, 2000));
   try {
-    console.log(`🔍 Validating booking ${bookingId}`);
+    logger.info('Validating booking', { bookingId, jobId: job.id });
 
     // Validate booking data
     const validationResult = {
@@ -89,14 +91,14 @@ const validateBooking = async (job) => {
     }
 
     if (validationResult.valid) {
-      console.log(`✅ Booking ${bookingId} validation passed`);
+      logger.info('Booking validation passed', { bookingId, jobId: job.id });
     } else {
-      console.log(`❌ Booking ${bookingId} validation failed:`, validationResult.errors);
+      logger.warn('Booking validation failed', { bookingId, errors: validationResult.errors, jobId: job.id });
     }
 
     return validationResult;
   } catch (error) {
-    console.error(`❌ Booking validation failed for ${bookingId}:`, error.message);
+    logger.error('Booking validation failed', { bookingId, error, jobId: job.id });
     throw error;
   }
 };

@@ -1,8 +1,10 @@
+const logger = require('../utils/logger');
+
 const trackEvent = async (job) => {
   const { eventData } = job.data;
 
   try {
-    console.log(`📊 Tracking analytics event: ${eventData.event_type}`);
+    logger.info('Tracking analytics event', { eventType: eventData.event_type, jobId: job.id });
 
     // TODO: Implement GA4 tracking
     // const ga4Service = require('../services/ga4.service');
@@ -23,7 +25,7 @@ const trackEvent = async (job) => {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`✅ Analytics event tracked: ${eventData.event_type}`);
+    logger.info('Analytics event tracked', { eventType: eventData.event_type, jobId: job.id });
 
     // Store analytics event
     // const analyticsService = require('../services/analytics.service');
@@ -31,7 +33,7 @@ const trackEvent = async (job) => {
 
     return result;
   } catch (error) {
-    console.error(`❌ Analytics tracking failed for event ${eventData.event_type}:`, error.message);
+    logger.error('Analytics tracking failed', { eventType: eventData.event_type, error, jobId: job.id });
     throw error;
   }
 };
@@ -40,7 +42,7 @@ const trackConversion = async (job) => {
   const { conversionData } = job.data;
 
   try {
-    console.log(`🎯 Tracking conversion for booking ${conversionData.booking_id}`);
+    logger.info('Tracking conversion', { bookingId: conversionData.booking_id, jobId: job.id });
 
     // TODO: Implement Google Ads conversion tracking
     // const googleAdsService = require('../services/google-ads.service');
@@ -62,14 +64,15 @@ const trackConversion = async (job) => {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`✅ Conversion tracked for booking ${conversionData.booking_id}`);
+    logger.info('Conversion tracked', { bookingId: conversionData.booking_id, jobId: job.id });
 
     return result;
   } catch (error) {
-    console.error(
-      `❌ Conversion tracking failed for booking ${conversionData.booking_id}:`,
-      error.message
-    );
+    logger.error('Conversion tracking failed', {
+      bookingId: conversionData.booking_id,
+      error,
+      jobId: job.id,
+    });
     throw error;
   }
 };
@@ -78,7 +81,7 @@ const processAttribution = async (job) => {
   const { attributionData } = job.data;
 
   try {
-    console.log(`🔍 Processing attribution data for session ${attributionData.session_id}`);
+    logger.info('Processing attribution data', { sessionId: attributionData.session_id, jobId: job.id });
 
     // Process UTM parameters
     const attribution = {
@@ -99,7 +102,7 @@ const processAttribution = async (job) => {
     // Simulate processing
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    console.log(`✅ Attribution processed for session ${attributionData.session_id}`);
+    logger.info('Attribution processed', { sessionId: attributionData.session_id, jobId: job.id });
 
     // Store attribution data
     // const analyticsService = require('../services/analytics.service');
@@ -107,10 +110,11 @@ const processAttribution = async (job) => {
 
     return attribution;
   } catch (error) {
-    console.error(
-      `❌ Attribution processing failed for session ${attributionData.session_id}:`,
-      error.message
-    );
+    logger.error('Attribution processing failed', {
+      sessionId: attributionData.session_id,
+      error,
+      jobId: job.id,
+    });
     throw error;
   }
 };

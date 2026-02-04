@@ -19,7 +19,7 @@ class ServiceTitanJobProcessor {
     const { bookingData, attempt = 1 } = job.data;
 
     try {
-      console.log(
+      logger.info(
         `[ServiceTitan] Processing job creation (attempt ${attempt}/${this.maxRetries})`,
         {
           bookingId: bookingData.bookingId,
@@ -35,7 +35,7 @@ class ServiceTitanJobProcessor {
       const serviceTitanJob = await serviceTitanService.createJob(bookingData);
 
       // Log success
-      console.log('[ServiceTitan] Job created successfully:', {
+      logger.info('[ServiceTitan] Job created successfully:', {
         serviceTitanJobId: serviceTitanJob.id,
         jobNumber: serviceTitanJob.jobNumber,
         bookingId: bookingData.bookingId,
@@ -50,7 +50,7 @@ class ServiceTitanJobProcessor {
         completedAt: new Date().toISOString(),
       };
     } catch (error) {
-      console.error(`[ServiceTitan] Job creation failed (attempt ${attempt}):`, {
+      logger.error(`[ServiceTitan] Job creation failed (attempt ${attempt}):`, {
         error: error.message,
         bookingId: bookingData.bookingId,
         willRetry: attempt < this.maxRetries,
@@ -68,7 +68,7 @@ class ServiceTitanJobProcessor {
         );
       } else {
         // Final failure - log and handle gracefully
-        console.error('[ServiceTitan] Job creation failed permanently:', {
+        logger.error('[ServiceTitan] Job creation failed permanently:', {
           error: error.message,
           bookingId: bookingData.bookingId,
           attempts: attempt,
@@ -99,7 +99,7 @@ class ServiceTitanJobProcessor {
     const { jobId, status, attempt = 1 } = job.data;
 
     try {
-      console.log(
+      logger.info(
         `[ServiceTitan] Processing status update (attempt ${attempt}/${this.maxRetries})`,
         {
           jobId,
@@ -109,7 +109,7 @@ class ServiceTitanJobProcessor {
 
       const updatedJob = await serviceTitanService.updateJobStatus(jobId, status);
 
-      console.log('[ServiceTitan] Status updated successfully:', {
+      logger.info('[ServiceTitan] Status updated successfully:', {
         jobId,
         oldStatus: updatedJob.status,
         newStatus: status,
@@ -122,7 +122,7 @@ class ServiceTitanJobProcessor {
         completedAt: new Date().toISOString(),
       };
     } catch (error) {
-      console.error(`[ServiceTitan] Status update failed (attempt ${attempt}):`, {
+      logger.error(`[ServiceTitan] Status update failed (attempt ${attempt}):`, {
         error: error.message,
         jobId,
         status,
@@ -157,7 +157,7 @@ class ServiceTitanJobProcessor {
     const { jobId, reason, attempt = 1 } = job.data;
 
     try {
-      console.log(
+      logger.info(
         `[ServiceTitan] Processing job cancellation (attempt ${attempt}/${this.maxRetries})`,
         {
           jobId,
@@ -167,7 +167,7 @@ class ServiceTitanJobProcessor {
 
       const cancelledJob = await serviceTitanService.cancelJob(jobId, reason);
 
-      console.log('[ServiceTitan] Job cancelled successfully:', {
+      logger.info('[ServiceTitan] Job cancelled successfully:', {
         jobId,
         reason: cancelledJob.cancellationReason,
         cancelledAt: cancelledJob.cancelledAt,
@@ -180,7 +180,7 @@ class ServiceTitanJobProcessor {
         completedAt: new Date().toISOString(),
       };
     } catch (error) {
-      console.error(`[ServiceTitan] Job cancellation failed (attempt ${attempt}):`, {
+      logger.error(`[ServiceTitan] Job cancellation failed (attempt ${attempt}):`, {
         error: error.message,
         jobId,
         reason,
@@ -213,11 +213,11 @@ class ServiceTitanJobProcessor {
    */
   async processHealthCheck(job) {
     try {
-      console.log('[ServiceTitan] Processing health check');
+      logger.info('[ServiceTitan] Processing health check');
 
       const health = await serviceTitanService.getHealthStatus();
 
-      console.log('[ServiceTitan] Health check completed:', {
+      logger.info('[ServiceTitan] Health check completed:', {
         status: health.status,
         jobsCreated: health.jobsCreated,
       });
@@ -228,7 +228,7 @@ class ServiceTitanJobProcessor {
         completedAt: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('[ServiceTitan] Health check failed:', {
+      logger.error('[ServiceTitan] Health check failed:', {
         error: error.message,
       });
 
