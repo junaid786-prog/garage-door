@@ -102,6 +102,14 @@ class RedisConnection {
 
   getClient() {
     if (!this.isConnected || !this.client) {
+      logger.warn('Redis client not connected');
+      return null;
+    }
+    return this.client;
+  }
+
+  getClientOrThrow() {
+    if (!this.isConnected || !this.client) {
       throw new Error('Redis client not connected. Call connect() first.');
     }
     return this.client;
@@ -125,7 +133,9 @@ const redisConnection = new RedisConnection();
 module.exports = {
   redisConnection,
   getRedisClient: () => redisConnection.getClient(),
+  getRedisClientOrThrow: () => redisConnection.getClientOrThrow(),
   connectRedis: () => redisConnection.connect(),
   disconnectRedis: () => redisConnection.disconnect(),
   redisHealthCheck: () => redisConnection.healthCheck(),
+  isRedisConnected: () => redisConnection.isConnected,
 };

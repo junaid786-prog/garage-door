@@ -62,7 +62,91 @@ const closeDB = async () => {
   }
 };
 
+/**
+ * Get database connection pool statistics
+ * @returns {Object} Pool statistics
+ */
+const getPoolStats = () => {
+  try {
+    const pool = sequelize.connectionManager.pool;
+
+    if (!pool) {
+      return {
+        available: false,
+        message: 'Connection pool not initialized',
+      };
+    }
+
+    // Get pool statistics from Sequelize connection manager
+    return {
+      available: true,
+      size: pool.size || 0, // Total connections in pool
+      available: pool.available || 0, // Available connections
+      using: pool.using || 0, // Currently in-use connections
+      waiting: pool.waiting || 0, // Requests waiting for a connection
+      max: databaseConfig.pool.max,
+      min: databaseConfig.pool.min,
+      idle: databaseConfig.pool.idle,
+      acquire: databaseConfig.pool.acquire,
+    };
+  } catch (error) {
+    logger.error('Failed to get pool stats', { error });
+    return {
+      available: false,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Check database connection pool health
+ * @returns {Object} Health status
+ */
+const checkPoolHealth = () => {
+  const stats = getPoolStats();
+
+  if (!stats.available) {
+    return {
+      healthy: false,
+      reason: stats.message || stats.error,
+    };
+  }
+
+  const utilizationPercent = (stats.using / stats.max) * 100;
+  const waitingConnections = stats.waiting || 0;
+
+  // Health thresholds
+  const isHealthy = utilizationPercent < 80 && waitingConnections < 5;
+  const isDegraded = utilizationPercent >= 80 || waitingConnections >= 5;
+  const isCritical = utilizationPercent >= 95 || waitingConnections >= 10;
+
+  let status = 'healthy';
+  let reason = null;
+
+  if (isCritical) {
+    status = 'critical';
+    reason = 'Connection pool near capacity or many waiting connections';
+  } else if (isDegraded) {
+    status = 'degraded';
+    reason = 'Connection pool utilization high or connections waiting';
+  }
+
+  return {
+    healthy: isHealthy,
+    status,
+    reason,
+    stats: {
+      utilizationPercent: utilizationPercent.toFixed(1),
+      using: stats.using,
+      max: stats.max,
+      waiting: waitingConnections,
+    },
+  };
+};
+
 module.exports = sequelize;
 module.exports.connectDB = connectDB;
 module.exports.syncDatabase = syncDatabase;
 module.exports.closeDB = closeDB;
+module.exports.getPoolStats = getPoolStats;
+module.exports.checkPoolHealth = checkPoolHealth;

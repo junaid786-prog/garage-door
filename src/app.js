@@ -7,6 +7,8 @@ const errorHandler = require('./middleware/errorHandler');
 const validateApiKey = require('./middleware/apiKeyAuth');
 const { createRateLimiter } = require('./middleware/rateLimiter');
 const { getMorganMiddleware } = require('./config/morgan');
+const { timingMiddleware } = require('./middleware/timing');
+const { validateRequest } = require('./middleware/requestValidator');
 
 // Import routes
 const healthRoutes = require('./modules/health/routes');
@@ -26,12 +28,18 @@ const app = express();
 app.use(helmet());
 app.use(cors(config.cors));
 
-// Body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing middleware with size limits (prevent abuse)
+app.use(express.json({ limit: '10kb' })); // Reject payloads larger than 10KB
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Request validation middleware (reject malformed requests)
+app.use(validateRequest);
 
 // Compression middleware
 app.use(compression());
+
+// Request timing middleware (adds X-Response-Time header)
+app.use(timingMiddleware);
 
 // Logging middleware (production-safe, no PII in logs)
 app.use(getMorganMiddleware(config.env));

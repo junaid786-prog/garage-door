@@ -289,13 +289,15 @@ class BookingService {
   /**
    * Get bookings by phone number
    * @param {string} phoneE164 - Phone number in E.164 format
+   * @param {number} limit - Maximum number of results (default: 100)
    * @returns {Promise<Array>} Array of bookings
    */
-  async getBookingsByPhone(phoneE164) {
+  async getBookingsByPhone(phoneE164, limit = 100) {
     try {
       const bookings = await Booking.findAll({
         where: { phoneE164 },
         order: [['created_at', 'DESC']],
+        limit: Math.min(limit, 100), // Cap at 100 to prevent large result sets
       });
 
       return bookings.map((booking) => this._transformModelToResponse(booking));

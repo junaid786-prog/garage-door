@@ -15,32 +15,55 @@ class RedisStore {
   }
 
   async increment(key) {
-    const prefixedKey = `${this.prefix}${key}`;
-    const current = await this.client.incr(prefixedKey);
+    try {
+      if (!this.client) {
+        throw new Error('Redis client not available');
+      }
 
-    if (current === 1) {
-      // First request, set expiry
-      await this.client.pexpire(prefixedKey, this.windowMs);
+      const prefixedKey = `${this.prefix}${key}`;
+      const current = await this.client.incr(prefixedKey);
+
+      if (current === 1) {
+        // First request, set expiry
+        await this.client.pexpire(prefixedKey, this.windowMs);
+      }
+
+      // Get TTL to calculate resetTime
+      const ttl = await this.client.pttl(prefixedKey);
+      const resetTime = ttl > 0 ? new Date(Date.now() + ttl) : undefined;
+
+      return {
+        totalHits: current,
+        resetTime,
+      };
+    } catch (error) {
+      // If Redis is down, allow the request through (fail open)
+      logger.warn('Rate limiter Redis error - allowing request', { error: error.message });
+      return {
+        totalHits: 0,
+        resetTime: undefined,
+      };
     }
-
-    // Get TTL to calculate resetTime
-    const ttl = await this.client.pttl(prefixedKey);
-    const resetTime = ttl > 0 ? new Date(Date.now() + ttl) : undefined;
-
-    return {
-      totalHits: current,
-      resetTime,
-    };
   }
 
   async decrement(key) {
-    const prefixedKey = `${this.prefix}${key}`;
-    await this.client.decr(prefixedKey);
+    try {
+      if (!this.client) return;
+      const prefixedKey = `${this.prefix}${key}`;
+      await this.client.decr(prefixedKey);
+    } catch (error) {
+      logger.warn('Rate limiter decrement error', { error: error.message });
+    }
   }
 
   async resetKey(key) {
-    const prefixedKey = `${this.prefix}${key}`;
-    await this.client.del(prefixedKey);
+    try {
+      if (!this.client) return;
+      const prefixedKey = `${this.prefix}${key}`;
+      await this.client.del(prefixedKey);
+    } catch (error) {
+      logger.warn('Rate limiter reset error', { error: error.message });
+    }
   }
 }
 
@@ -173,8 +196,69 @@ const createStrictRateLimiter = () => {
   }
 };
 
+/**
+ * Create endpoint-specific rate limiter
+ * @param {number} max - Maximum requests per window
+ * @param {number} windowMs - Time window in milliseconds (default: 15 minutes)
+ * @param {string} prefix - Redis key prefix (default: 'rl:endpoint:')
+ * @returns {Function} Rate limiter middleware
+ */
+const createEndpointRateLimiter = (max, windowMs = 15 * 60 * 1000, prefix = 'rl:endpoint:') => {
+  try {
+    const redisClient = getRedisClient();
+
+    if (!redisClient) {
+      logger.warn('Redis not available - endpoint rate limiting disabled');
+      return (req, res, next) => next();
+    }
+
+    return rateLimit({
+      store: new RedisStore({
+        client: redisClient,
+        prefix,
+        windowMs,
+      }),
+      windowMs,
+      max,
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: (req, res) => {
+        res.status(429).json({
+          success: false,
+          message: `Too many requests to this endpoint from this IP, please try again later.`,
+          error: {
+            code: 'RATE_LIMIT_EXCEEDED',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      },
+      keyGenerator: (req) => {
+        return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to create endpoint rate limiter', { error });
+    return (req, res, next) => next();
+  }
+};
+
+/**
+ * Booking endpoint rate limiter
+ * - 10 requests per 15 minutes per IP (stricter than general limit)
+ */
+const bookingRateLimiter = () => createEndpointRateLimiter(10, 15 * 60 * 1000, 'rl:booking:');
+
+/**
+ * Read endpoint rate limiter
+ * - 100 requests per 15 minutes per IP
+ */
+const readRateLimiter = () => createEndpointRateLimiter(100, 15 * 60 * 1000, 'rl:read:');
+
 module.exports = {
   createRateLimiter,
   createStrictRateLimiter,
+  createEndpointRateLimiter,
+  bookingRateLimiter,
+  readRateLimiter,
   initializeRateLimiter,
 };

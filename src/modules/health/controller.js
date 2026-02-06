@@ -2,6 +2,7 @@ const serviceTitanService = require('../integrations/servicetitan/service');
 const schedulingProIntegration = require('../integrations/schedulingpro/integration');
 const redis = require('../../config/redis');
 const { sequelize } = require('../../database/models');
+const { getPoolStats, checkPoolHealth } = require('../../database/connection');
 const queueManager = require('../../config/queue');
 const logger = require('../../utils/logger');
 
@@ -36,13 +37,32 @@ class HealthController {
       services: {},
     };
 
-    // Check database connection
+    // Check database connection and pool health
     try {
       await sequelize.authenticate();
+      const poolHealth = checkPoolHealth();
+      const poolStats = getPoolStats();
+
       health.services.database = {
-        status: 'healthy',
+        status: poolHealth.healthy ? 'healthy' : poolHealth.status,
         type: 'PostgreSQL',
+        pool: poolStats.available
+          ? {
+              size: poolStats.size,
+              available: poolStats.available,
+              using: poolStats.using,
+              waiting: poolStats.waiting,
+              max: poolStats.max,
+              utilization: poolHealth.stats?.utilizationPercent,
+            }
+          : { available: false },
       };
+
+      // Mark health as degraded if pool is unhealthy
+      if (!poolHealth.healthy) {
+        health.status = poolHealth.status === 'critical' ? 'unhealthy' : 'degraded';
+        health.databaseWarning = poolHealth.reason;
+      }
     } catch (error) {
       health.services.database = {
         status: 'unhealthy',
