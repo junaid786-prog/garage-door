@@ -19,7 +19,8 @@ class BookingService {
    */
   async createBooking(bookingData) {
     try {
-      // Wrap entire booking creation in a transaction for atomicity
+      // Wrap booking creation in a transaction for atomicity
+      // This is now sync-only (no external API calls) for fast response (<500ms)
       return await withTransaction(
         async (transaction) => {
           // Transform nested form data to flat model structure
@@ -29,123 +30,21 @@ class BookingService {
           // This may throw UniqueConstraintError if slot is already booked
           const booking = await Booking.create(flatData, { transaction });
 
-          // Immediately attempt to create ServiceTitan job
-          // This is synchronous to provide immediate feedback
-          // NOTE: serviceTitanIntegration should never throw, only return {success: false}
-          // If it does throw, the transaction will rollback automatically
-
-          // Combine booking database fields with original form data
-          const serviceTitanData = {
-            id: booking.id,
-            // Database fields
-            contactName: booking.contactName,
-            phoneE164: booking.phoneE164,
-            street: booking.street,
-            unit: booking.unit,
-            city: booking.city,
-            state: booking.state,
-            zip: booking.zip,
+          logger.info('Booking created successfully', {
+            bookingId: booking.id,
+            slotId: booking.slotId,
             serviceType: booking.serviceType,
-            serviceSymptom: booking.serviceSymptom,
-            doorCount: booking.doorCount,
-            doorAgeBucket: booking.doorAgeBucket,
-            occupancyType: booking.occupancyType,
-            notes: booking.notes,
-            // Original form data for fields not in database
-            ...bookingData,
-          };
+          });
 
-          const serviceTitanResult =
-            await serviceTitanIntegration.createJobFromBooking(serviceTitanData);
-
-          if (serviceTitanResult.success) {
-            // Update booking with ServiceTitan job info within transaction
-            await booking.update(
-              {
-                serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
-                serviceTitanJobNumber: serviceTitanResult.jobNumber,
-                serviceTitanStatus: serviceTitanResult.status,
-              },
-              { transaction }
-            );
-
-            logger.info('ServiceTitan job created successfully', {
-              bookingId: booking.id,
-              serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
-              jobNumber: serviceTitanResult.jobNumber,
-            });
-          } else {
-            logger.error('ServiceTitan job creation failed', {
-              bookingId: booking.id,
-              error: serviceTitanResult.error,
-              shouldRetry: serviceTitanResult.shouldRetry,
-            });
-
-            // Update booking with error status within transaction
-            await booking.update(
-              {
-                serviceTitanStatus: 'failed',
-                serviceTitanError: serviceTitanResult.error,
-              },
-              { transaction }
-            );
-
-            // Log critical failure to error_logs table for manual recovery
-            await errorLogService.logError({
-              errorType: 'SERVICETITAN_JOB_CREATION_FAILED',
-              operation: 'createBooking.createServiceTitanJob',
-              serviceName: 'ServiceTitan',
-              context: {
-                bookingId: booking.id,
-                slotId: booking.slotId,
-                serviceType: booking.serviceType,
-                // Do not include PII - errorLogService handles sanitization
-              },
-              error: new Error(serviceTitanResult.error),
-              retryable: serviceTitanResult.shouldRetry,
-            });
-
-            // If retryable, could queue for background retry here
-            if (serviceTitanResult.shouldRetry) {
-              // TODO: Queue job for retry
-              logger.info('ServiceTitan job queued for retry', { bookingId: booking.id });
-            }
-          }
-
-          // Handle slot confirmation if auto-confirm is enabled
-          if (env.SCHEDULING_AUTO_CONFIRM_SLOTS && booking.slotId) {
-            logger.info('Auto-confirming reserved slot', {
-              bookingId: booking.id,
-              slotId: booking.slotId,
-            });
-
-            const confirmResult = await schedulingService.confirmReservedSlot(
-              booking.slotId,
-              booking.id
-            );
-
-            if (confirmResult.success) {
-              logger.info('Slot confirmed successfully', {
-                bookingId: booking.id,
-                slotId: booking.slotId,
-              });
-            } else {
-              logger.error('Slot confirmation failed', {
-                bookingId: booking.id,
-                slotId: booking.slotId,
-                error: confirmResult.error,
-              });
-
-              // Note: We don't fail the booking if slot confirmation fails
-              // The slot might have expired, but the booking is still valid
-            }
-          }
+          // NOTE: External integrations (ServiceTitan, slot confirmation) are handled
+          // asynchronously via background jobs for fast response time.
+          // The controller will queue these jobs after this method returns.
 
           // Transaction will auto-commit if we reach here
           return booking;
         },
-        { timeout: 30000 }
-      ); // 30 second timeout for booking creation
+        { timeout: 5000 }
+      ); // 5 second timeout for sync-only booking creation (reduced from 30s)
     } catch (error) {
       // Handle unique constraint violation (double-booking)
       if (error instanceof UniqueConstraintError) {
