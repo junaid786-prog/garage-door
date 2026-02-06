@@ -15,6 +15,7 @@ const bookingRoutes = require('./modules/bookings/routes');
 const geoRoutes = require('./modules/geo/routes');
 const schedulingRoutes = require('./modules/scheduling/routes');
 const errorRecoveryRoutes = require('./modules/admin/errorRecoveryRoutes');
+const queueRoutes = require('./modules/admin/queueRoutes');
 
 /**
  * Create Express application
@@ -50,6 +51,7 @@ app.use('/api/scheduling', validateApiKey, schedulingRoutes);
 
 // Admin routes (protected with API key - should add role-based auth in production)
 app.use('/admin/errors', validateApiKey, errorRecoveryRoutes);
+app.use('/admin/queue', validateApiKey, queueRoutes);
 
 // 404 handler
 app.use((req, res) => {

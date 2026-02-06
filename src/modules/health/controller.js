@@ -2,6 +2,7 @@ const serviceTitanService = require('../integrations/servicetitan/service');
 const schedulingProIntegration = require('../integrations/schedulingpro/integration');
 const redis = require('../../config/redis');
 const { sequelize } = require('../../database/models');
+const queueManager = require('../../config/queue');
 const logger = require('../../utils/logger');
 
 /**
@@ -96,6 +97,36 @@ class HealthController {
       logger.error('Failed to get circuit breaker health', { error: error.message });
       health.circuitBreakers = {
         error: 'Failed to retrieve circuit breaker status',
+      };
+    }
+
+    // Get DLQ stats and queue health
+    try {
+      const dlqStats = await queueManager.getDLQStats();
+      const queueStats = await queueManager.getAllQueueStats();
+
+      health.queues = {
+        stats: queueStats,
+        dlq: dlqStats,
+      };
+
+      // Alert if DLQ has many jobs (threshold: 50)
+      if (dlqStats.total > 50) {
+        health.status = 'degraded';
+        health.dlqWarning = `DLQ has ${dlqStats.total} failed jobs`;
+      }
+
+      // Alert if any queue has many failed jobs
+      for (const [queueName, stats] of Object.entries(queueStats)) {
+        if (stats && stats.failed > 20) {
+          health.status = 'degraded';
+          health.queueWarning = `Queue ${queueName} has ${stats.failed} failed jobs`;
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to get queue health', { error: error.message });
+      health.queues = {
+        error: 'Failed to retrieve queue status',
       };
     }
 

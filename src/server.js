@@ -4,6 +4,7 @@ const { connectRedis } = require('./config/redis');
 const { connectDB, closeDB } = require('./database/connection');
 const workerManager = require('./workers');
 const { initializeRateLimiter } = require('./middleware/rateLimiter');
+const dlqMonitorService = require('./services/dlqMonitorService');
 const logger = require('./utils/logger');
 
 const PORT = config.port;
@@ -56,6 +57,12 @@ const startServer = async () => {
 
     await workerManager.startWorkers();
 
+    // Start DLQ monitoring service
+    if (config.env !== 'test') {
+      dlqMonitorService.start();
+      logger.info('DLQ monitor service started');
+    }
+
     // Then start the server
     const server = app.listen(PORT, () => {
       logger.info('Server started successfully', {
@@ -80,6 +87,7 @@ startServer()
     process.on('SIGTERM', () => {
       logger.info('SIGTERM received, shutting down gracefully');
       server.close(async () => {
+        dlqMonitorService.stop();
         await closeDB();
         logger.info('Server and database closed');
         process.exit(0);
@@ -89,6 +97,7 @@ startServer()
     process.on('SIGINT', () => {
       logger.info('SIGINT received, shutting down gracefully');
       server.close(async () => {
+        dlqMonitorService.stop();
         await closeDB();
         logger.info('Server and database closed');
         process.exit(0);
