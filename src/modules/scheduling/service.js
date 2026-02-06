@@ -28,6 +28,16 @@ class SchedulingService {
    */
   async getAvailableSlots(zipCode, startDate = null, days = 7) {
     try {
+      // Check kill switch - instant disable without redeploy
+      if (env.DISABLE_SCHEDULING) {
+        logger.warn('Scheduling is currently disabled via kill switch', { zipCode });
+        return {
+          success: false,
+          error: 'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
+          disabled: true,
+          zipCode,
+        };
+      }
       // Validate ZIP code using enhanced geo service
       const schedulingValidation = await geoService.validateSchedulingAvailability(zipCode);
       if (!schedulingValidation.isServiceable || !schedulingValidation.hasScheduling) {
@@ -54,7 +64,7 @@ class SchedulingService {
       const cachedResult = this._getFromCache(cacheKey);
 
       if (cachedResult) {
-        logger.debug('Slots cache hit', { zipCode, date });
+        logger.debug('Slots cache hit', { zipCode, startDate });
         return {
           ...cachedResult,
           cached: true,
@@ -63,7 +73,7 @@ class SchedulingService {
       }
 
       // Fetch from SchedulingPro
-      logger.debug('Fetching slots from SchedulingPro', { zipCode, date });
+      logger.debug('Fetching slots from SchedulingPro', { zipCode, startDate });
       const result = await schedulingProIntegration.getAvailableSlots(zipCode, startDate, endDate);
 
       if (!result.success) {
@@ -113,7 +123,7 @@ class SchedulingService {
     } catch (error) {
       logger.error('Failed to get time slots', {
         zipCode,
-        date,
+        startDate,
         error,
       });
 
@@ -134,6 +144,19 @@ class SchedulingService {
    */
   async reserveSlot(slotId, bookingId, customerInfo = {}) {
     try {
+      // Check kill switch
+      if (env.DISABLE_SCHEDULING) {
+        logger.warn('Slot reservation blocked - scheduling disabled via kill switch', {
+          slotId,
+          bookingId,
+        });
+        return {
+          success: false,
+          error: 'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
+          disabled: true,
+          slotId,
+        };
+      }
       // Check if slot is already reserved in Redis
       const reservationCheck = await reservationService.isReserved(slotId);
 
@@ -322,6 +345,16 @@ class SchedulingService {
    */
   async checkServiceAvailability(zipCode) {
     try {
+      // Check kill switch
+      if (env.DISABLE_SCHEDULING) {
+        logger.warn('Service availability check - scheduling disabled via kill switch', { zipCode });
+        return {
+          success: false,
+          error: 'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
+          disabled: true,
+          zipCode,
+        };
+      }
       // Check with enhanced geo service for scheduling availability
       const schedulingValidation = await geoService.validateSchedulingAvailability(zipCode);
       if (!schedulingValidation.isServiceable || !schedulingValidation.hasScheduling) {

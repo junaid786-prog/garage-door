@@ -38,6 +38,11 @@ class SchedulingController {
       if (result.success) {
         return APIResponse.success(res, result, 'Available slots retrieved successfully');
       } else {
+        // Handle kill switch
+        if (result.disabled) {
+          return APIResponse.error(res, result.error, 503);
+        }
+
         // Handle specific error cases
         if (result.error.includes('service not available')) {
           return APIResponse.badRequest(res, result.error);
@@ -74,6 +79,11 @@ class SchedulingController {
       if (result.success) {
         return APIResponse.created(res, result, 'Slot reserved successfully');
       } else {
+        // Handle kill switch
+        if (result.disabled) {
+          return APIResponse.error(res, result.error, 503);
+        }
+
         // Handle specific error cases
         if (result.error.includes('already reserved')) {
           return APIResponse.conflict(res, result.error);
@@ -110,6 +120,11 @@ class SchedulingController {
       if (result.success) {
         return APIResponse.success(res, result, 'Service availability checked successfully');
       } else {
+        // Handle kill switch
+        if (result.disabled) {
+          return APIResponse.error(res, result.error, 503);
+        }
+
         return APIResponse.error(res, result.error, 503);
       }
     } catch (error) {

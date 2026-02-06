@@ -55,6 +55,9 @@ const env = {
   SCHEDULING_RESERVATION_TIMEOUT_MINUTES:
     parseInt(process.env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES) || 15,
   SCHEDULING_AUTO_CONFIRM_SLOTS: process.env.SCHEDULING_AUTO_CONFIRM_SLOTS === 'true' || true,
+
+  // Feature Flags / Kill Switch
+  DISABLE_SCHEDULING: process.env.DISABLE_SCHEDULING === 'true',
 };
 
 module.exports = env;
