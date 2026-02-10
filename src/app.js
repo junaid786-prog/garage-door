@@ -1,16 +1,23 @@
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
-const morgan = require('morgan');
 const compression = require('compression');
 const config = require('./config');
 const errorHandler = require('./middleware/errorHandler');
+const validateApiKey = require('./middleware/apiKeyAuth');
+const { createRateLimiter } = require('./middleware/rateLimiter');
+const { getMorganMiddleware } = require('./config/morgan');
+const { timingMiddleware } = require('./middleware/timing');
+const { validateRequest } = require('./middleware/requestValidator');
 
 // Import routes
+const healthRoutes = require('./modules/health/routes');
 const eventRoutes = require('./modules/events/routes');
 const bookingRoutes = require('./modules/bookings/routes');
 const geoRoutes = require('./modules/geo/routes');
 const schedulingRoutes = require('./modules/scheduling/routes');
+const errorRecoveryRoutes = require('./modules/admin/errorRecoveryRoutes');
+const queueRoutes = require('./modules/admin/queueRoutes');
 
 /**
  * Create Express application
@@ -21,34 +28,38 @@ const app = express();
 app.use(helmet());
 app.use(cors(config.cors));
 
-// Body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing middleware with size limits (prevent abuse)
+app.use(express.json({ limit: '10kb' })); // Reject payloads larger than 10KB
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Request validation middleware (reject malformed requests)
+app.use(validateRequest);
 
 // Compression middleware
 app.use(compression());
 
-// Logging middleware
-if (config.env === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// Request timing middleware (adds X-Response-Time header)
+app.use(timingMiddleware);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    env: config.env,
-  });
-});
+// Logging middleware (production-safe, no PII in logs)
+app.use(getMorganMiddleware(config.env));
 
-// API routes
-app.use('/api/events', eventRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/geo', geoRoutes);
-app.use('/api/scheduling', schedulingRoutes);
+// Rate limiting middleware (applied to all routes)
+const rateLimiter = createRateLimiter();
+app.use(rateLimiter);
+
+// Health Check endpoints (public - no API key required)
+app.use('/health', healthRoutes);
+
+// API routes (protected with API key)
+app.use('/api/events', validateApiKey, eventRoutes);
+app.use('/api/bookings', validateApiKey, bookingRoutes);
+app.use('/api/geo', validateApiKey, geoRoutes);
+app.use('/api/scheduling', validateApiKey, schedulingRoutes);
+
+// Admin routes (protected with API key - should add role-based auth in production)
+app.use('/admin/errors', validateApiKey, errorRecoveryRoutes);
+app.use('/admin/queue', validateApiKey, queueRoutes);
 
 // 404 handler
 app.use((req, res) => {

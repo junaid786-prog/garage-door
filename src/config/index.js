@@ -9,7 +9,10 @@ const config = {
   env: env.NODE_ENV,
 
   cors: {
-    origin: env.CORS_ORIGIN,
+    origin: env.CORS_ORIGIN.includes(',')
+      ? env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+      : env.CORS_ORIGIN,
+    credentials: true,
   },
 };
 

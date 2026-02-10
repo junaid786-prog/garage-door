@@ -86,10 +86,7 @@ class Event extends Model {
 
     // Get events by name
     const eventsByName = await this.findAll({
-      attributes: [
-        'name',
-        [sequelize.fn('COUNT', sequelize.col('id')), 'count'],
-      ],
+      attributes: ['name', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
       where: whereClause,
       group: ['name'],
       order: [[sequelize.literal('count'), 'DESC']],

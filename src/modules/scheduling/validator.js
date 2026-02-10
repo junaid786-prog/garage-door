@@ -32,17 +32,13 @@ const slotReservationSchema = Joi.object({
       'string.pattern.base': 'Slot ID must be in format slot_YYYY-MM-DD_HHMM',
       'any.required': 'Slot ID is required',
     }),
-  
-  bookingId: Joi.string()
-    .min(1)
-    .max(100)
-    .required()
-    .messages({
-      'string.min': 'Booking ID is required',
-      'string.max': 'Booking ID cannot exceed 100 characters',
-      'any.required': 'Booking ID is required',
-    }),
-  
+
+  bookingId: Joi.string().min(1).max(100).required().messages({
+    'string.min': 'Booking ID is required',
+    'string.max': 'Booking ID cannot exceed 100 characters',
+    'any.required': 'Booking ID is required',
+  }),
+
   customerInfo: Joi.object({
     name: Joi.string().max(200).optional(),
     phone: Joi.string().max(20).optional(),
@@ -53,32 +49,22 @@ const slotReservationSchema = Joi.object({
 
 // Slot cancellation validation
 const slotCancellationSchema = Joi.object({
-  bookingId: Joi.string()
-    .min(1)
-    .max(100)
-    .required()
-    .messages({
-      'string.min': 'Booking ID is required',
-      'string.max': 'Booking ID cannot exceed 100 characters',
-      'any.required': 'Booking ID is required',
-    }),
+  bookingId: Joi.string().min(1).max(100).required().messages({
+    'string.min': 'Booking ID is required',
+    'string.max': 'Booking ID cannot exceed 100 characters',
+    'any.required': 'Booking ID is required',
+  }),
 });
 
 // Get available slots query validation
 const availableSlotsQuerySchema = Joi.object({
   zip: zipCodeSchema,
   date: dateSchema,
-  days: Joi.number()
-    .integer()
-    .min(1)
-    .max(30)
-    .optional()
-    .default(7)
-    .messages({
-      'number.min': 'Days must be at least 1',
-      'number.max': 'Days cannot exceed 30',
-      'number.integer': 'Days must be a whole number',
-    }),
+  days: Joi.number().integer().min(1).max(30).optional().default(7).messages({
+    'number.min': 'Days must be at least 1',
+    'number.max': 'Days cannot exceed 30',
+    'number.integer': 'Days must be a whole number',
+  }),
 });
 
 // Service availability query validation
@@ -100,7 +86,7 @@ const validate = (schema, property = 'body') => {
     });
 
     if (error) {
-      const errorDetails = error.details.map(detail => ({
+      const errorDetails = error.details.map((detail) => ({
         field: detail.path.join('.'),
         message: detail.message,
         value: detail.context.value,
@@ -133,7 +119,7 @@ const validateServiceAvailabilityQuery = validate(serviceAvailabilityQuerySchema
  */
 const validateSlotIdParam = (req, res, next) => {
   const { slotId } = req.params;
-  
+
   if (!slotId) {
     return res.status(400).json({
       success: false,
@@ -160,12 +146,12 @@ const validateSlotIdParam = (req, res, next) => {
  */
 const validateDateNotInPast = (req, res, next) => {
   const { date } = req.query;
-  
+
   if (date) {
     const requestedDate = new Date(date);
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of today
-    
+
     if (requestedDate < today) {
       return res.status(400).json({
         success: false,
@@ -187,14 +173,14 @@ const validateRateLimit = (req, res, next) => {
   // In production, use Redis-based rate limiting
   const ip = req.ip;
   const currentTime = Date.now();
-  
+
   // Allow this for now, but structure for future implementation
   req.rateLimitInfo = {
     ip,
     timestamp: currentTime,
     // In production: check Redis for request count
   };
-  
+
   next();
 };
 
@@ -207,7 +193,7 @@ module.exports = {
   validateSlotIdParam,
   validateDateNotInPast,
   validateRateLimit,
-  
+
   // Export schemas for testing
   schemas: {
     availableSlotsQuerySchema,

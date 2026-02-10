@@ -1,31 +1,107 @@
+const logger = require('../utils/logger');
+const serviceTitanIntegration = require('../modules/integrations/servicetitan/integration');
+const schedulingService = require('../modules/scheduling/service');
+const Booking = require('../database/models/Booking');
+const errorLogService = require('../services/errorLogService');
+
 const createServiceTitanJob = async (job) => {
-  const { bookingId, _bookingData } = job.data;
+  const { bookingId, bookingData } = job.data;
 
   try {
-    console.log(`🔧 Processing ServiceTitan job creation for booking ${bookingId}`);
+    logger.info('Processing ServiceTitan job creation', { bookingId, jobId: job.id });
 
-    // TODO: Implement ServiceTitan API integration
-    // const serviceTitanService = require('../services/servicetitan.service');
-    // const result = await serviceTitanService.createJob(bookingData);
+    // Call real ServiceTitan integration
+    const result = await serviceTitanIntegration.createJobFromBooking(bookingData);
 
-    // Simulate API call for now
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (result.success) {
+      // Update booking with ServiceTitan job info
+      await Booking.update(
+        {
+          serviceTitanJobId: result.serviceTitanJobId,
+          serviceTitanJobNumber: result.jobNumber,
+          serviceTitanStatus: result.status,
+          serviceTitanError: null, // Clear any previous errors
+        },
+        {
+          where: { id: bookingId },
+        }
+      );
 
-    const mockResult = {
-      jobId: `ST-${Date.now()}`,
-      status: 'created',
-      bookingId,
-    };
+      logger.info('ServiceTitan job created successfully', {
+        bookingId,
+        serviceTitanJobId: result.serviceTitanJobId,
+        jobNumber: result.jobNumber,
+        jobId: job.id,
+      });
 
-    console.log(`✅ ServiceTitan job created: ${mockResult.jobId}`);
+      return {
+        success: true,
+        serviceTitanJobId: result.serviceTitanJobId,
+        jobNumber: result.jobNumber,
+      };
+    } else {
+      // Update booking with error status
+      await Booking.update(
+        {
+          serviceTitanStatus: 'failed',
+          serviceTitanError: result.error,
+        },
+        {
+          where: { id: bookingId },
+        }
+      );
 
-    // Update booking with ServiceTitan job ID
-    // const bookingService = require('../services/booking.service');
-    // await bookingService.updateBooking(bookingId, { servicetitan_job_id: mockResult.jobId });
+      // Log critical failure to error_logs table
+      await errorLogService.logError({
+        errorType: 'SERVICETITAN_JOB_CREATION_FAILED',
+        operation: 'worker.createServiceTitanJob',
+        serviceName: 'ServiceTitan',
+        context: {
+          bookingId,
+          jobId: job.id,
+          attemptNumber: job.attemptsMade,
+        },
+        error: new Error(result.error),
+        retryable: result.shouldRetry,
+      });
 
-    return mockResult;
+      logger.error('ServiceTitan job creation failed', {
+        bookingId,
+        error: result.error,
+        shouldRetry: result.shouldRetry,
+        jobId: job.id,
+      });
+
+      // Throw error to trigger retry if retryable
+      if (result.shouldRetry) {
+        throw new Error(`ServiceTitan job creation failed: ${result.error}`);
+      }
+
+      // Don't retry for non-retryable errors
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
   } catch (error) {
-    console.error(`❌ ServiceTitan job creation failed for booking ${bookingId}:`, error.message);
+    logger.error('ServiceTitan job worker error', {
+      bookingId,
+      error: error.message,
+      jobId: job.id,
+    });
+
+    // Update booking with error status
+    await Booking.update(
+      {
+        serviceTitanStatus: 'failed',
+        serviceTitanError: error.message,
+      },
+      {
+        where: { id: bookingId },
+      }
+    );
+
+    // Re-throw to trigger retry
     throw error;
   }
 };
@@ -34,27 +110,56 @@ const confirmTimeSlot = async (job) => {
   const { bookingId, slotData } = job.data;
 
   try {
-    console.log(`⏰ Confirming time slot for booking ${bookingId}`);
-
-    // TODO: Implement Scheduling Pro API integration
-    // const schedulingService = require('../services/scheduling.service');
-    // const result = await schedulingService.confirmSlot(slotData);
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const mockResult = {
-      slotId: slotData.slotId,
-      confirmed: true,
+    logger.info('Confirming time slot', {
       bookingId,
-    };
+      slotId: slotData.slotId,
+      jobId: job.id,
+    });
 
-    console.log(`✅ Time slot confirmed for booking ${bookingId}`);
+    // Call real scheduling service to confirm the slot
+    const result = await schedulingService.confirmReservedSlot(slotData.slotId, bookingId);
 
-    return mockResult;
+    if (result.success) {
+      logger.info('Time slot confirmed successfully', {
+        bookingId,
+        slotId: slotData.slotId,
+        jobId: job.id,
+      });
+
+      return {
+        success: true,
+        slotId: slotData.slotId,
+        confirmed: true,
+      };
+    } else {
+      logger.warn('Time slot confirmation failed', {
+        bookingId,
+        slotId: slotData.slotId,
+        error: result.error,
+        jobId: job.id,
+      });
+
+      // Note: We don't fail the booking if slot confirmation fails
+      // The slot might have expired, but the booking is still valid
+      // So we log the error but don't throw (no retry)
+      return {
+        success: false,
+        error: result.error,
+      };
+    }
   } catch (error) {
-    console.error(`❌ Time slot confirmation failed for booking ${bookingId}:`, error.message);
-    throw error;
+    logger.error('Time slot confirmation worker error', {
+      bookingId,
+      slotId: slotData.slotId,
+      error: error.message,
+      jobId: job.id,
+    });
+
+    // Don't throw - slot confirmation failure should not fail the booking
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 };
 
@@ -63,7 +168,7 @@ const validateBooking = async (job) => {
 
   await new Promise((resolve) => setTimeout(resolve, 2000));
   try {
-    console.log(`🔍 Validating booking ${bookingId}`);
+    logger.info('Validating booking', { bookingId, jobId: job.id });
 
     // Validate booking data
     const validationResult = {
@@ -89,14 +194,14 @@ const validateBooking = async (job) => {
     }
 
     if (validationResult.valid) {
-      console.log(`✅ Booking ${bookingId} validation passed`);
+      logger.info('Booking validation passed', { bookingId, jobId: job.id });
     } else {
-      console.log(`❌ Booking ${bookingId} validation failed:`, validationResult.errors);
+      logger.warn('Booking validation failed', { bookingId, errors: validationResult.errors, jobId: job.id });
     }
 
     return validationResult;
   } catch (error) {
-    console.error(`❌ Booking validation failed for ${bookingId}:`, error.message);
+    logger.error('Booking validation failed', { bookingId, error, jobId: job.id });
     throw error;
   }
 };

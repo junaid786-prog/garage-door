@@ -4,7 +4,7 @@ const geoService = require('../../geo/service');
 /**
  * SchedulingPro integration service
  * Simulates SchedulingPro API for appointment scheduling and slot management
- * 
+ *
  * This is a simulation service that mimics the real SchedulingPro API.
  * When real API credentials are available, replace this with actual API calls.
  */
@@ -13,21 +13,21 @@ class SchedulingProService {
     this.baseURL = env.SCHEDULINGPRO_API_URL || 'https://api.schedulingpro.com';
     this.apiKey = env.SCHEDULINGPRO_API_KEY || 'sim_schedulingpro_key_12345';
     this.tenantId = env.SCHEDULINGPRO_TENANT_ID || 'sim_tenant_67890';
-    
+
     // Simulation state
     this.bookedSlots = new Map(); // slotId -> bookingInfo
     this.reservedSlots = new Map(); // slotId -> { reservedAt, expiresAt, bookingId }
-    
+
     // Arizona timezone
     this.timezone = 'America/Phoenix';
-    
+
     // Working hours (9 AM to 5 PM, 2-hour slots)
     this.workingHours = {
-      start: 9,  // 9 AM
-      end: 17,   // 5 PM
-      slotDuration: 2 // 2 hours
+      start: 9, // 9 AM
+      end: 17, // 5 PM
+      slotDuration: 2, // 2 hours
     };
-    
+
     // Service areas will be loaded from geo module
     this.serviceableZips = geoService.getServiceableZipCodes();
   }
@@ -88,7 +88,7 @@ class SchedulingProService {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       totalSlots: slots.length,
-      availableSlots: slots.filter(slot => slot.available).length,
+      availableSlots: slots.filter((slot) => slot.available).length,
       slots,
     };
   }
@@ -125,8 +125,8 @@ class SchedulingProService {
 
     // Create reservation
     const reservedAt = new Date();
-    const expiresAt = new Date(reservedAt.getTime() + (reservationMinutes * 60 * 1000));
-    
+    const expiresAt = new Date(reservedAt.getTime() + reservationMinutes * 60 * 1000);
+
     const reservation = {
       slotId,
       bookingId,
@@ -137,7 +137,7 @@ class SchedulingProService {
 
     this.reservedSlots.set(slotId, reservation);
 
-    console.log(`[SchedulingPro] Slot reserved: ${slotId} for ${reservationMinutes} minutes`);
+    logger.info(`[SchedulingPro] Slot reserved: ${slotId} for ${reservationMinutes} minutes`);
 
     return {
       success: true,
@@ -186,7 +186,7 @@ class SchedulingProService {
     // Remove from reservations
     this.reservedSlots.delete(slotId);
 
-    console.log(`[SchedulingPro] Slot confirmed: ${slotId} for booking: ${bookingId}`);
+    logger.info(`[SchedulingPro] Slot confirmed: ${slotId} for booking: ${bookingId}`);
 
     return {
       success: true,
@@ -230,10 +230,12 @@ class SchedulingProService {
     }
 
     if (!cancelledType) {
-      throw new Error(`No reservation or booking found for slot: ${slotId} with booking ID: ${bookingId}`);
+      throw new Error(
+        `No reservation or booking found for slot: ${slotId} with booking ID: ${bookingId}`
+      );
     }
 
-    console.log(`[SchedulingPro] ${cancelledType} cancelled: ${slotId} for booking: ${bookingId}`);
+    logger.info(`[SchedulingPro] ${cancelledType} cancelled: ${slotId} for booking: ${bookingId}`);
 
     return {
       success: true,
@@ -266,9 +268,9 @@ class SchedulingProService {
 
   /**
    * Generate slots for date range
-   * @param {string} zipCode 
-   * @param {Date} startDate 
-   * @param {Date} endDate 
+   * @param {string} zipCode
+   * @param {Date} startDate
+   * @param {Date} endDate
    * @returns {Array} Generated slots
    * @private
    */
@@ -287,8 +289,8 @@ class SchedulingProService {
 
   /**
    * Generate slots for a specific date
-   * @param {string} zipCode 
-   * @param {Date} date 
+   * @param {string} zipCode
+   * @param {Date} date
    * @returns {Array} Day slots
    * @private
    */
@@ -306,11 +308,12 @@ class SchedulingProService {
       const slotId = this._generateSlotId(date, hour);
       const startTime = `${hour.toString().padStart(2, '0')}:00`;
       const endTime = `${(hour + slotDuration).toString().padStart(2, '0')}:00`;
-      
+
       // Check availability (not reserved or booked)
-      const available = !this.reservedSlots.has(slotId) && 
-                       !this.bookedSlots.has(slotId) &&
-                       this._isSlotAvailable(zipCode, date, hour);
+      const available =
+        !this.reservedSlots.has(slotId) &&
+        !this.bookedSlots.has(slotId) &&
+        this._isSlotAvailable(zipCode, date, hour);
 
       slots.push({
         id: slotId,
@@ -330,9 +333,9 @@ class SchedulingProService {
 
   /**
    * Check if slot is available based on business rules
-   * @param {string} zipCode 
-   * @param {Date} date 
-   * @param {number} hour 
+   * @param {string} zipCode
+   * @param {Date} date
+   * @param {number} hour
    * @returns {boolean}
    * @private
    */
@@ -341,7 +344,7 @@ class SchedulingProService {
     const now = new Date();
     const slotDateTime = new Date(date);
     slotDateTime.setHours(hour, 0, 0, 0);
-    
+
     if (slotDateTime <= now) {
       return false;
     }
@@ -350,7 +353,7 @@ class SchedulingProService {
     const zipSeed = parseInt(zipCode) % 100;
     const dateSeed = date.getDate();
     const hourSeed = hour;
-    
+
     // Some randomness in availability (85% available overall)
     const availability = (zipSeed + dateSeed + hourSeed) % 100;
     return availability < 85;
@@ -358,15 +361,15 @@ class SchedulingProService {
 
   /**
    * Format display time
-   * @param {number} startHour 
-   * @param {number} endHour 
+   * @param {number} startHour
+   * @param {number} endHour
    * @returns {string}
    * @private
    */
   _formatDisplayTime(startHour, endHour) {
     const formatHour = (hour) => {
       const period = hour >= 12 ? 'PM' : 'AM';
-      const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
       return `${displayHour}:00 ${period}`;
     };
 
@@ -375,8 +378,8 @@ class SchedulingProService {
 
   /**
    * Generate slot ID
-   * @param {Date} date 
-   * @param {number} hour 
+   * @param {Date} date
+   * @param {number} hour
    * @returns {string}
    * @private
    */
@@ -387,7 +390,7 @@ class SchedulingProService {
 
   /**
    * Find slot by ID
-   * @param {string} slotId 
+   * @param {string} slotId
    * @returns {Object|null}
    * @private
    */
@@ -401,15 +404,15 @@ class SchedulingProService {
 
     // Find ZIP code from existing reservations/bookings or use default
     let zipCode = '85001'; // Default
-    
+
     // Try to find ZIP from other context if needed
     const slots = this._generateSlotsForDate(zipCode, date);
-    return slots.find(slot => slot.id === slotId);
+    return slots.find((slot) => slot.id === slotId);
   }
 
   /**
    * Assign technician based on ZIP code
-   * @param {string} zipCode 
+   * @param {string} zipCode
    * @returns {string}
    * @private
    */
@@ -427,16 +430,16 @@ class SchedulingProService {
 
   /**
    * Simulate API delay
-   * @param {number} ms 
+   * @param {number} ms
    * @private
    */
   async _simulateDelay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Simulate error scenarios
-   * @param {string} zipCode 
+   * @param {string} zipCode
    * @private
    */
   async _simulateErrorScenarios(zipCode) {

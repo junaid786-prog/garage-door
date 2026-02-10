@@ -11,6 +11,7 @@
     "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
     "db:seed": "npx sequelize-cli db:seed:all",
     "db:seed:undo": "npx sequelize-cli db:seed:undo:all",
+    "test:concurrency": "node tests/concurrency/double-booking-test.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write ."
@@ -36,11 +37,13 @@
     "joi": "^17.9.2",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "opossum": "^9.0.0",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "redis": "^5.9.0",
     "sequelize": "^6.37.7",
-    "sequelize-cli": "^6.6.3"
+    "sequelize-cli": "^6.6.3",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

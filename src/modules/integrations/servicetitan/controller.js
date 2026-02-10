@@ -190,7 +190,7 @@ class ServiceTitanController {
       const webhookData = req.body;
 
       // Log webhook for now (in real implementation, process status updates)
-      console.log('ServiceTitan webhook received:', {
+      logger.info('ServiceTitan webhook received:', {
         type: webhookData.type,
         jobId: webhookData.jobId,
         status: webhookData.status,
@@ -247,13 +247,16 @@ class ServiceTitanController {
         }
       }
 
-      return APIResponse.success(res, {
-        successful: results.length,
-        failed: errors.length,
-        results,
-        errors,
-      }, `Batch job creation completed: ${results.length} successful, ${errors.length} failed`);
-
+      return APIResponse.success(
+        res,
+        {
+          successful: results.length,
+          failed: errors.length,
+          results,
+          errors,
+        },
+        `Batch job creation completed: ${results.length} successful, ${errors.length} failed`
+      );
     } catch (error) {
       next(error);
     }

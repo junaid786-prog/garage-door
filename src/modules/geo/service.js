@@ -64,9 +64,36 @@ class GeoService {
 
     // Dummy validation - replace with actual service area logic
     const serviceableZips = [
-      '85001', '85002', '85003', '85004', '85005', '85006', '85007', '85008', '85009', '85010',
-      '85251', '85252', '85253', '85254', '85255', '85256', '85257', '85258', '85259', '85260',
-      '85301', '85302', '85303', '85304', '85305', '85306', '85307', '85308', '85309', '85310',
+      '85001',
+      '85002',
+      '85003',
+      '85004',
+      '85005',
+      '85006',
+      '85007',
+      '85008',
+      '85009',
+      '85010',
+      '85251',
+      '85252',
+      '85253',
+      '85254',
+      '85255',
+      '85256',
+      '85257',
+      '85258',
+      '85259',
+      '85260',
+      '85301',
+      '85302',
+      '85303',
+      '85304',
+      '85305',
+      '85306',
+      '85307',
+      '85308',
+      '85309',
+      '85310',
     ];
 
     const isServiceable = serviceableZips.includes(zipCode);
@@ -74,8 +101,8 @@ class GeoService {
     return {
       zipCode,
       isServiceable,
-      message: isServiceable 
-        ? 'Service available in this area' 
+      message: isServiceable
+        ? 'Service available in this area'
         : 'Service not available in this area',
       estimatedServiceRadius: isServiceable ? '25 miles' : null,
     };
@@ -89,7 +116,16 @@ class GeoService {
     // Dummy data for now - replace with actual service area data
     return {
       zipCodes: [
-        '85001', '85002', '85003', '85004', '85005', '85251', '85252', '85253', '85301', '85302'
+        '85001',
+        '85002',
+        '85003',
+        '85004',
+        '85005',
+        '85251',
+        '85252',
+        '85253',
+        '85301',
+        '85302',
       ],
       cities: ['Phoenix', 'Scottsdale', 'Tempe', 'Mesa', 'Chandler', 'Glendale'],
       states: ['AZ'],
@@ -113,13 +149,14 @@ class GeoService {
     const R = 3959; // Earth's radius in miles
     const dLat = this._toRadians(point2.latitude - point1.latitude);
     const dLon = this._toRadians(point2.longitude - point1.longitude);
-    
-    const a = 
+
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this._toRadians(point1.latitude)) * 
-      Math.cos(this._toRadians(point2.latitude)) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    
+      Math.cos(this._toRadians(point1.latitude)) *
+        Math.cos(this._toRadians(point2.latitude)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c;
 
@@ -137,9 +174,36 @@ class GeoService {
    */
   getServiceableZipCodes() {
     return [
-      '85001', '85002', '85003', '85004', '85005', '85006', '85007', '85008', '85009', '85010',
-      '85251', '85252', '85253', '85254', '85255', '85256', '85257', '85258', '85259', '85260',
-      '85301', '85302', '85303', '85304', '85305', '85306', '85307', '85308', '85309', '85310',
+      '85001',
+      '85002',
+      '85003',
+      '85004',
+      '85005',
+      '85006',
+      '85007',
+      '85008',
+      '85009',
+      '85010',
+      '85251',
+      '85252',
+      '85253',
+      '85254',
+      '85255',
+      '85256',
+      '85257',
+      '85258',
+      '85259',
+      '85260',
+      '85301',
+      '85302',
+      '85303',
+      '85304',
+      '85305',
+      '85306',
+      '85307',
+      '85308',
+      '85309',
+      '85310',
     ];
   }
 
@@ -164,16 +228,18 @@ class GeoService {
       city: locationData.city,
       state: locationData.state,
       timezone: locationData.timezone,
-      message: isServiceable 
-        ? 'Scheduling service available in this area' 
+      message: isServiceable
+        ? 'Scheduling service available in this area'
         : 'Scheduling service not available in this area',
-      serviceHours: isServiceable ? {
-        start: '09:00',
-        end: '17:00',
-        timezone: 'America/Phoenix',
-        weekdays: true,
-        weekends: false
-      } : null,
+      serviceHours: isServiceable
+        ? {
+            start: '09:00',
+            end: '17:00',
+            timezone: 'America/Phoenix',
+            weekdays: true,
+            weekends: false,
+          }
+        : null,
     };
   }
 
@@ -190,9 +256,9 @@ class GeoService {
   // Private helper methods for dummy data generation
   _getDummyCity(zipCode) {
     const cityMap = {
-      '85001': 'Phoenix',
-      '85251': 'Scottsdale',
-      '85301': 'Glendale',
+      85001: 'Phoenix',
+      85251: 'Scottsdale',
+      85301: 'Glendale',
     };
     return cityMap[zipCode] || 'Phoenix';
   }
@@ -208,11 +274,11 @@ class GeoService {
 
   _getDummyCoordinates(zipCode) {
     const coordsMap = {
-      '85001': { latitude: 33.4484, longitude: -112.0740 },
-      '85251': { latitude: 33.4942, longitude: -111.9261 },
-      '85301': { latitude: 33.5387, longitude: -112.1860 },
+      85001: { latitude: 33.4484, longitude: -112.074 },
+      85251: { latitude: 33.4942, longitude: -111.9261 },
+      85301: { latitude: 33.5387, longitude: -112.186 },
     };
-    return coordsMap[zipCode] || { latitude: 33.4484, longitude: -112.0740 };
+    return coordsMap[zipCode] || { latitude: 33.4484, longitude: -112.074 };
   }
 
   _getDummyTimezone(zipCode) {
@@ -222,7 +288,16 @@ class GeoService {
   _getServiceArea(zipCode) {
     // Dummy service area check
     const serviceableZips = [
-      '85001', '85002', '85003', '85004', '85005', '85251', '85252', '85253', '85301', '85302'
+      '85001',
+      '85002',
+      '85003',
+      '85004',
+      '85005',
+      '85251',
+      '85252',
+      '85253',
+      '85301',
+      '85302',
     ];
     return serviceableZips.includes(zipCode);
   }
@@ -231,7 +306,12 @@ class GeoService {
     // Very basic coordinate to ZIP mapping for Phoenix area
     if (latitude >= 33.4 && latitude <= 33.5 && longitude >= -112.1 && longitude <= -112.0) {
       return '85001'; // Phoenix area
-    } else if (latitude >= 33.45 && latitude <= 33.55 && longitude >= -111.95 && longitude <= -111.9) {
+    } else if (
+      latitude >= 33.45 &&
+      latitude <= 33.55 &&
+      longitude >= -111.95 &&
+      longitude <= -111.9
+    ) {
       return '85251'; // Scottsdale area
     } else {
       return '85001'; // Default to Phoenix

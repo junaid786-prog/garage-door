@@ -1,9 +1,13 @@
 const env = require('../../../config/env');
+const { Booking } = require('../../../database/models');
+const { createCircuitBreaker } = require('../../../utils/circuitBreaker');
+const { ServiceUnavailableError, ExternalServiceError } = require('../../../utils/errors');
+const logger = require('../../../utils/logger');
 
 /**
  * ServiceTitan integration service
  * Simulates ServiceTitan API for job creation and management
- * 
+ *
  * This is a simulation service that mimics the real ServiceTitan API.
  * When real API credentials are available, replace this with actual API calls.
  */
@@ -13,10 +17,104 @@ class ServiceTitanService {
     this.apiKey = env.SERVICETITAN_API_KEY || 'sim_key_12345';
     this.tenantId = env.SERVICETITAN_TENANT_ID || 'sim_tenant_67890';
     this.appKey = env.SERVICETITAN_APP_KEY || 'sim_app_abcde';
-    
+
     // Simulation state
     this.simulatedJobs = new Map();
     this.simulatedJobCounter = 1000;
+    this.initialized = false;
+
+    // Circuit breakers for external calls
+    this._setupCircuitBreakers();
+  }
+
+  /**
+   * Setup circuit breakers for external API calls
+   * @private
+   */
+  _setupCircuitBreakers() {
+    // Circuit breaker for job creation (most critical operation)
+    this.createJobBreaker = createCircuitBreaker(
+      this._createJobInternal.bind(this),
+      {
+        name: 'ServiceTitan.createJob',
+        timeout: 10000, // 10 seconds
+        errorThresholdPercentage: 50,
+        resetTimeout: 5000,
+      },
+      async (bookingData) => {
+        // Fallback: Store job for later retry
+        logger.warn('ServiceTitan circuit breaker open, using fallback', {
+          operation: 'createJob',
+          bookingId: bookingData.bookingId
+        });
+        throw new ServiceUnavailableError(
+          'ServiceTitan is temporarily unavailable. Job will be created in background.',
+          'ServiceTitan'
+        );
+      }
+    );
+
+    // Circuit breaker for job updates
+    this.updateJobBreaker = createCircuitBreaker(
+      this._updateJobStatusInternal.bind(this),
+      {
+        name: 'ServiceTitan.updateJobStatus',
+        timeout: 8000,
+        errorThresholdPercentage: 50,
+        resetTimeout: 5000,
+      }
+    );
+
+    // Circuit breaker for getting jobs
+    this.getJobBreaker = createCircuitBreaker(
+      this._getJobInternal.bind(this),
+      {
+        name: 'ServiceTitan.getJob',
+        timeout: 5000,
+        errorThresholdPercentage: 50,
+        resetTimeout: 5000,
+      }
+    );
+
+    // Circuit breaker for cancellations
+    this.cancelJobBreaker = createCircuitBreaker(
+      this._cancelJobInternal.bind(this),
+      {
+        name: 'ServiceTitan.cancelJob',
+        timeout: 8000,
+        errorThresholdPercentage: 50,
+        resetTimeout: 5000,
+      }
+    );
+  }
+
+  /**
+   * Initialize counter from database to avoid conflicts after server restart
+   * @private
+   */
+  async _initializeCounter() {
+    if (this.initialized) return;
+
+    try {
+      const maxJob = await Booking.findOne({
+        attributes: [[Booking.sequelize.fn('MAX', Booking.sequelize.cast(Booking.sequelize.col('service_titan_job_id'), 'INTEGER')), 'maxId']],
+        where: {
+          service_titan_job_id: {
+            [Booking.sequelize.Op.ne]: null
+          }
+        },
+        raw: true
+      });
+
+      if (maxJob && maxJob.maxId) {
+        this.simulatedJobCounter = parseInt(maxJob.maxId);
+      }
+
+      this.initialized = true;
+    } catch (error) {
+      // If initialization fails, continue with default counter
+      this.initialized = true;
+    }
   }
 
   /**
@@ -45,11 +143,36 @@ class ServiceTitanService {
   }
 
   /**
-   * Create a job in ServiceTitan
+   * Create a job in ServiceTitan (with circuit breaker protection)
    * @param {Object} bookingData - Booking information
    * @returns {Promise<Object>} Created job information
    */
   async createJob(bookingData) {
+    try {
+      return await this.createJobBreaker.fire(bookingData);
+    } catch (error) {
+      // Circuit breaker errors
+      if (error instanceof ServiceUnavailableError) {
+        throw error;
+      }
+
+      // Transform generic errors to ExternalServiceError
+      throw new ExternalServiceError(
+        error.message,
+        'ServiceTitan',
+        'CREATE_JOB_FAILED',
+        this._isRetryableError(error)
+      );
+    }
+  }
+
+  /**
+   * Internal job creation method (protected by circuit breaker)
+   * @param {Object} bookingData - Booking information
+   * @returns {Promise<Object>} Created job information
+   * @private
+   */
+  async _createJobInternal(bookingData) {
     // Validate required fields
     this._validateBookingData(bookingData);
 
@@ -59,15 +182,16 @@ class ServiceTitanService {
     // Simulate different error scenarios
     await this._simulateErrors(bookingData);
 
-    const jobId = ++this.simulatedJobCounter;
-    
+    // Generate unique job ID using timestamp + random to avoid collisions
+    const jobId = Date.now() + Math.floor(Math.random() * 1000);
+
     const serviceTitanJob = {
       id: jobId,
       externalId: bookingData.bookingId || null,
       jobNumber: `JOB-${String(jobId).padStart(6, '0')}`,
       status: 'scheduled',
       priority: this._determinePriority(bookingData.problemType),
-      
+
       // Customer information
       customer: {
         id: this._generateCustomerId(),
@@ -102,16 +226,16 @@ class ServiceTitanService {
       scheduledDate: bookingData.scheduledDate,
       timeSlot: bookingData.timeSlot,
       estimatedDuration: this._estimateDuration(bookingData.problemType),
-      
+
       // ServiceTitan specific fields
       businessUnit: this._getBusinessUnit(bookingData.zip),
       campaignId: bookingData.campaignId || null,
       source: 'online_booking_widget',
-      
+
       // Timestamps
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      
+
       // Simulation metadata
       _simulation: {
         created: true,
@@ -127,11 +251,30 @@ class ServiceTitanService {
   }
 
   /**
-   * Get job by ID
+   * Get job by ID (with circuit breaker protection)
    * @param {number} jobId - Job ID
    * @returns {Promise<Object>} Job information
    */
   async getJob(jobId) {
+    try {
+      return await this.getJobBreaker.fire(jobId);
+    } catch (error) {
+      throw new ExternalServiceError(
+        error.message,
+        'ServiceTitan',
+        'GET_JOB_FAILED',
+        this._isRetryableError(error)
+      );
+    }
+  }
+
+  /**
+   * Internal get job method (protected by circuit breaker)
+   * @param {number} jobId - Job ID
+   * @returns {Promise<Object>} Job information
+   * @private
+   */
+  async _getJobInternal(jobId) {
     await this._simulateDelay(300);
 
     const job = this.simulatedJobs.get(parseInt(jobId));
@@ -143,12 +286,32 @@ class ServiceTitanService {
   }
 
   /**
-   * Update job status
+   * Update job status (with circuit breaker protection)
    * @param {number} jobId - Job ID
    * @param {string} status - New status
    * @returns {Promise<Object>} Updated job
    */
   async updateJobStatus(jobId, status) {
+    try {
+      return await this.updateJobBreaker.fire(jobId, status);
+    } catch (error) {
+      throw new ExternalServiceError(
+        error.message,
+        'ServiceTitan',
+        'UPDATE_JOB_FAILED',
+        this._isRetryableError(error)
+      );
+    }
+  }
+
+  /**
+   * Internal update job status method (protected by circuit breaker)
+   * @param {number} jobId - Job ID
+   * @param {string} status - New status
+   * @returns {Promise<Object>} Updated job
+   * @private
+   */
+  async _updateJobStatusInternal(jobId, status) {
     await this._simulateDelay(400);
 
     const job = this.simulatedJobs.get(parseInt(jobId));
@@ -177,22 +340,41 @@ class ServiceTitanService {
   async getJobsByDateRange(startDate, endDate) {
     await this._simulateDelay(600);
 
-    const jobs = Array.from(this.simulatedJobs.values())
-      .filter(job => {
-        const jobDate = new Date(job.scheduledDate);
-        return jobDate >= startDate && jobDate <= endDate;
-      });
+    const jobs = Array.from(this.simulatedJobs.values()).filter((job) => {
+      const jobDate = new Date(job.scheduledDate);
+      return jobDate >= startDate && jobDate <= endDate;
+    });
 
     return jobs;
   }
 
   /**
-   * Cancel a job
+   * Cancel a job (with circuit breaker protection)
    * @param {number} jobId - Job ID
    * @param {string} reason - Cancellation reason
    * @returns {Promise<Object>} Cancelled job
    */
   async cancelJob(jobId, reason = 'Customer request') {
+    try {
+      return await this.cancelJobBreaker.fire(jobId, reason);
+    } catch (error) {
+      throw new ExternalServiceError(
+        error.message,
+        'ServiceTitan',
+        'CANCEL_JOB_FAILED',
+        this._isRetryableError(error)
+      );
+    }
+  }
+
+  /**
+   * Internal cancel job method (protected by circuit breaker)
+   * @param {number} jobId - Job ID
+   * @param {string} reason - Cancellation reason
+   * @returns {Promise<Object>} Cancelled job
+   * @private
+   */
+  async _cancelJobInternal(jobId, reason = 'Customer request') {
     await this._simulateDelay(500);
 
     const job = this.simulatedJobs.get(parseInt(jobId));
@@ -223,10 +405,12 @@ class ServiceTitanService {
     return {
       status: 'healthy',
       version: 'simulation-v1.0.0',
-      uptime: Date.now() - (1000 * 60 * 60 * 24), // 24 hours
+      uptime: Date.now() - 1000 * 60 * 60 * 24, // 24 hours
       jobsCreated: this.simulatedJobs.size,
-      lastJobCreated: this.simulatedJobs.size > 0 ? 
-        Array.from(this.simulatedJobs.values()).pop().createdAt : null,
+      lastJobCreated:
+        this.simulatedJobs.size > 0
+          ? Array.from(this.simulatedJobs.values()).pop().createdAt
+          : null,
     };
   }
 
@@ -234,11 +418,21 @@ class ServiceTitanService {
 
   /**
    * Validate booking data
-   * @param {Object} bookingData 
+   * @param {Object} bookingData
    */
   _validateBookingData(bookingData) {
-    const required = ['firstName', 'lastName', 'phone', 'email', 'address', 'city', 'state', 'zip', 'problemType'];
-    
+    const required = [
+      'firstName',
+      'lastName',
+      'phone',
+      'email',
+      'address',
+      'city',
+      'state',
+      'zip',
+      'problemType',
+    ];
+
     for (const field of required) {
       if (!bookingData[field]) {
         throw new Error(`Missing required field: ${field}`);
@@ -288,7 +482,7 @@ class ServiceTitanService {
    * Simulate API delay
    */
   async _simulateDelay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -315,7 +509,7 @@ class ServiceTitanService {
     };
 
     let description = problemDescriptions[bookingData.problemType] || problemDescriptions.other;
-    
+
     if (bookingData.doorCount > 1) {
       description += ` (${bookingData.doorCount} doors)`;
     }
@@ -350,7 +544,7 @@ class ServiceTitanService {
    */
   _getBusinessUnit(zipCode) {
     const zip = parseInt(zipCode);
-    
+
     if (zip >= 85001 && zip <= 85099) {
       return 'Phoenix_Central';
     } else if (zip >= 85201 && zip <= 85299) {
@@ -367,6 +561,71 @@ class ServiceTitanService {
    */
   _generateCustomerId() {
     return `CUST_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  }
+
+  /**
+   * Determine if an error is retryable
+   * @param {Error} error - Error to check
+   * @returns {boolean} Whether the error is retryable
+   * @private
+   */
+  _isRetryableError(error) {
+    const message = error.message.toLowerCase();
+
+    // Non-retryable errors (client errors, validation failures)
+    const nonRetryable = [
+      'authentication failed',
+      'invalid api key',
+      'invalid',
+      'missing required field',
+      'cannot cancel completed job',
+      'already exists',
+    ];
+
+    if (nonRetryable.some(term => message.includes(term))) {
+      return false;
+    }
+
+    // Retryable errors (network, timeouts, server errors)
+    const retryable = [
+      'temporarily unavailable',
+      'timeout',
+      'network',
+      'connection',
+      'service unavailable',
+    ];
+
+    if (retryable.some(term => message.includes(term))) {
+      return true;
+    }
+
+    // Random API failures (5% chance) are retryable
+    return true;
+  }
+
+  /**
+   * Get circuit breaker health status
+   * @returns {Object} Health status of all circuit breakers
+   */
+  getCircuitBreakerHealth() {
+    return {
+      createJob: {
+        state: this.createJobBreaker.opened ? 'open' : this.createJobBreaker.halfOpen ? 'half-open' : 'closed',
+        stats: this.createJobBreaker.stats
+      },
+      updateJob: {
+        state: this.updateJobBreaker.opened ? 'open' : this.updateJobBreaker.halfOpen ? 'half-open' : 'closed',
+        stats: this.updateJobBreaker.stats
+      },
+      getJob: {
+        state: this.getJobBreaker.opened ? 'open' : this.getJobBreaker.halfOpen ? 'half-open' : 'closed',
+        stats: this.getJobBreaker.stats
+      },
+      cancelJob: {
+        state: this.cancelJobBreaker.opened ? 'open' : this.cancelJobBreaker.halfOpen ? 'half-open' : 'closed',
+        stats: this.cancelJobBreaker.stats
+      }
+    };
   }
 }
 

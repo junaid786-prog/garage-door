@@ -19,7 +19,7 @@ const loadModels = () => {
         models[model.name] = model;
       }
     } catch (error) {
-      console.error(`Error loading model ${file}:`, error);
+      logger.error(`Error loading model ${file}:`, error);
     }
   });
 

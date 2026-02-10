@@ -38,15 +38,18 @@ POST   /api/bookings/:id/servicetitan     # Link ServiceTitan job ID
 ## Database Schema
 
 ### Service Information
+
 - `serviceType`: 'repair' | 'replacement'
 - `serviceSymptom`: 'wont_open' | 'wont_close' | 'spring_bang' | 'tune_up' | 'other'
 - `canOpenClose`: 'yes' | 'no' | 'partial'
 
-### Door Information  
+### Door Information
+
 - `doorAgeBucket`: 'lt_8' | 'gte_8' (years)
 - `doorCount`: 1 | 2
 
 ### Address Information
+
 - `street`: string (required)
 - `unit`: string (optional)
 - `city`: string (required)
@@ -54,14 +57,17 @@ POST   /api/bookings/:id/servicetitan     # Link ServiceTitan job ID
 - `zip`: string (required, 5 or 5+4 format)
 
 ### Occupancy Information
+
 - `occupancyType`: 'homeowner' | 'renter' | 'pm' | 'unknown'
 - `renterPermission`: boolean (required if renter)
 
 ### Contact Information
+
 - `phoneE164`: string (required, E.164 format: +1234567890)
 - `contactName`: string (optional)
 
 ### Scheduling Information
+
 - `slotId`: string (optional, for future scheduling integration)
 - `asapSelected`: boolean (optional)
 - `priorityScore`: number (optional, 0-100)
@@ -75,7 +81,7 @@ POST /api/bookings
 {
   "service": {
     "type": "repair",
-    "symptom": "wont_open", 
+    "symptom": "wont_open",
     "can_open_close": "no"
   },
   "door": {
@@ -86,7 +92,7 @@ POST /api/bookings
   "address": {
     "street": "123 Main St",
     "unit": "Apt 2A",
-    "city": "Springfield", 
+    "city": "Springfield",
     "state": "IL",
     "zip": "62701"
   },
@@ -164,17 +170,19 @@ pending → confirmed → in_progress → completed
 ## Integration Points
 
 ### ServiceTitan (Ready)
+
 - `serviceTitanJobId` field in database
 - Link endpoint: `POST /api/bookings/:id/servicetitan`
 
 ### Phone Lookup
+
 - Index on phone_e164 for fast lookups
 - Endpoint: `GET /api/bookings/phone/:phone`
 
 ## Database Indexes
 
 - `phone_e164` - Customer lookup
-- `zip` - Geographic queries  
+- `zip` - Geographic queries
 - `status` - Status filtering
 - `created_at` - Time-based sorting
 - `service_titan_job_id` - Unique when not null
@@ -216,7 +224,7 @@ curl -X POST http://localhost:3000/api/bookings \
 ## Next Steps
 
 1. Run database migration: `npm run db:migrate`
-2. Test all endpoints 
+2. Test all endpoints
 3. Integrate with authentication middleware
 4. Connect ServiceTitan API (Milestone 3)
 5. Add comprehensive test suite

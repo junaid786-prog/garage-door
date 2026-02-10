@@ -47,15 +47,17 @@ class APIResponse {
    * @param {string} message - Error message
    * @param {number} statusCode - HTTP status code
    * @param {string} code - Error code
-   * @param {Array} errors - Validation errors (optional)
+   * @param {Array|string} errorsOrStack - Validation errors (optional) or stack trace (development only)
    */
-  static error(res, message, statusCode = 500, code = 'INTERNAL_ERROR', errors = null) {
+  static error(res, message, statusCode = 500, code = 'INTERNAL_ERROR', errorsOrStack = null) {
     const response = {
       success: false,
       message,
       error: {
         code,
-        ...(errors && { details: errors }),
+        // Support both validation errors (array) and stack traces (string)
+        ...(Array.isArray(errorsOrStack) && { details: errorsOrStack }),
+        ...(typeof errorsOrStack === 'string' && { stack: errorsOrStack }),
       },
       timestamp: new Date().toISOString(),
     };
@@ -104,9 +106,10 @@ class APIResponse {
    * Internal server error response (500)
    * @param {Object} res - Express response object
    * @param {string} message - Error message
+   * @param {string} stack - Stack trace (optional, development only)
    */
-  static serverError(res, message = 'Internal server error') {
-    return this.error(res, message, 500, 'INTERNAL_ERROR');
+  static serverError(res, message = 'Internal server error', stack = null) {
+    return this.error(res, message, 500, 'INTERNAL_ERROR', stack);
   }
 }
 

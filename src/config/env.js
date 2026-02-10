@@ -6,6 +6,13 @@ const env = {
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
 
+  // Security
+  API_KEY: process.env.API_KEY,
+
+  // Rate Limiting
+  RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+
   // Database
   DB_USER: process.env.DB_USER || 'postgres',
   DB_PASSWORD: process.env.DB_PASSWORD || 'password',
@@ -45,8 +52,12 @@ const env = {
 
   // Scheduling Configuration
   SCHEDULING_CACHE_TTL_MINUTES: parseInt(process.env.SCHEDULING_CACHE_TTL_MINUTES) || 10,
-  SCHEDULING_RESERVATION_TIMEOUT_MINUTES: parseInt(process.env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES) || 15,
+  SCHEDULING_RESERVATION_TIMEOUT_MINUTES:
+    parseInt(process.env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES) || 15,
   SCHEDULING_AUTO_CONFIRM_SLOTS: process.env.SCHEDULING_AUTO_CONFIRM_SLOTS === 'true' || true,
+
+  // Feature Flags / Kill Switch
+  DISABLE_SCHEDULING: process.env.DISABLE_SCHEDULING === 'true',
 };
 
 module.exports = env;
