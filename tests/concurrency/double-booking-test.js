@@ -119,16 +119,20 @@ async function makeBookingRequest(index) {
  * Run concurrent booking requests
  */
 async function runConcurrencyTest(iteration = 1) {
-  console.log(`\n${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}`);
-  console.log(`${colors.cyan}  Iteration ${iteration}: Sending ${CONCURRENT_REQUESTS} concurrent requests for slot: ${TEST_SLOT_ID}${colors.reset}`);
-  console.log(`${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}\n`);
+  console.log(
+    `\n${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}`
+  );
+  console.log(
+    `${colors.cyan}  Iteration ${iteration}: Sending ${CONCURRENT_REQUESTS} concurrent requests for slot: ${TEST_SLOT_ID}${colors.reset}`
+  );
+  console.log(
+    `${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}\n`
+  );
 
   const startTime = performance.now();
 
   // Launch all requests concurrently
-  const promises = Array.from({ length: CONCURRENT_REQUESTS }, (_, i) =>
-    makeBookingRequest(i + 1)
-  );
+  const promises = Array.from({ length: CONCURRENT_REQUESTS }, (_, i) => makeBookingRequest(i + 1));
 
   const results = await Promise.all(promises);
   const totalDuration = performance.now() - startTime;
@@ -147,20 +151,24 @@ function analyzeResults(testData) {
   const { results, totalDuration, iteration } = testData;
 
   // Count successes and failures
-  const successes = results.filter(r => r.success);
-  const conflicts = results.filter(r => r.status === 409);
-  const errors = results.filter(r => !r.success && r.status !== 409);
+  const successes = results.filter((r) => r.success);
+  const conflicts = results.filter((r) => r.status === 409);
+  const errors = results.filter((r) => !r.success && r.status !== 409);
 
   // Calculate response time statistics
-  const durations = results.map(r => r.duration);
+  const durations = results.map((r) => r.duration);
   const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
   const minDuration = Math.min(...durations);
   const maxDuration = Math.max(...durations);
 
   // Print results
-  console.log(`\n${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}`);
+  console.log(
+    `\n${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}`
+  );
   console.log(`${colors.blue}  Test Results - Iteration ${iteration}${colors.reset}`);
-  console.log(`${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}\n`);
+  console.log(
+    `${colors.blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${colors.reset}\n`
+  );
 
   console.log(`Total Requests:        ${CONCURRENT_REQUESTS}`);
   console.log(`${colors.green}✓ Successful (201):    ${successes.length}${colors.reset}`);
@@ -175,7 +183,7 @@ function analyzeResults(testData) {
   // Show successful booking details
   if (successes.length > 0) {
     console.log(`${colors.green}Successful Bookings:${colors.reset}`);
-    successes.forEach(s => {
+    successes.forEach((s) => {
       console.log(`  - Request #${s.index}: ${s.bookingId} (${s.duration.toFixed(2)}ms)`);
     });
     console.log('');
@@ -184,7 +192,7 @@ function analyzeResults(testData) {
   // Show conflict details
   if (conflicts.length > 0) {
     console.log(`${colors.yellow}Conflict Errors (409):${colors.reset}`);
-    conflicts.forEach(c => {
+    conflicts.forEach((c) => {
       console.log(`  - Request #${c.index}: ${c.error} (${c.duration.toFixed(2)}ms)`);
     });
     console.log('');
@@ -193,14 +201,15 @@ function analyzeResults(testData) {
   // Show other errors
   if (errors.length > 0) {
     console.log(`${colors.red}Other Errors:${colors.reset}`);
-    errors.forEach(e => {
+    errors.forEach((e) => {
       console.log(`  - Request #${e.index}: [${e.status}] ${e.error} (${e.duration.toFixed(2)}ms)`);
     });
     console.log('');
   }
 
   return {
-    passed: successes.length === 1 && conflicts.length === (CONCURRENT_REQUESTS - 1) && errors.length === 0,
+    passed:
+      successes.length === 1 && conflicts.length === CONCURRENT_REQUESTS - 1 && errors.length === 0,
     successes: successes.length,
     conflicts: conflicts.length,
     errors: errors.length,
@@ -215,12 +224,16 @@ function analyzeResults(testData) {
  * Print final test summary
  */
 function printFinalSummary(allResults) {
-  console.log(`\n${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}`);
+  console.log(
+    `\n${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}`
+  );
   console.log(`${colors.cyan}  FINAL TEST SUMMARY${colors.reset}`);
-  console.log(`${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}\n`);
+  console.log(
+    `${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}\n`
+  );
 
   const totalTests = allResults.length;
-  const passedTests = allResults.filter(r => r.passed).length;
+  const passedTests = allResults.filter((r) => r.passed).length;
   const failedTests = totalTests - passedTests;
 
   console.log(`Total Iterations:      ${totalTests}`);
@@ -234,29 +247,63 @@ function printFinalSummary(allResults) {
   const totalErrors = allResults.reduce((sum, r) => sum + r.errors, 0);
 
   console.log(`Total Requests Sent:   ${totalRequests}`);
-  console.log(`${colors.green}Total Successful:      ${totalSuccesses} (${((totalSuccesses / totalRequests) * 100).toFixed(1)}%)${colors.reset}`);
-  console.log(`${colors.yellow}Total Conflicts:       ${totalConflicts} (${((totalConflicts / totalRequests) * 100).toFixed(1)}%)${colors.reset}`);
-  console.log(`${colors.red}Total Errors:          ${totalErrors} (${((totalErrors / totalRequests) * 100).toFixed(1)}%)${colors.reset}\n`);
+  console.log(
+    `${colors.green}Total Successful:      ${totalSuccesses} (${((totalSuccesses / totalRequests) * 100).toFixed(1)}%)${colors.reset}`
+  );
+  console.log(
+    `${colors.yellow}Total Conflicts:       ${totalConflicts} (${((totalConflicts / totalRequests) * 100).toFixed(1)}%)${colors.reset}`
+  );
+  console.log(
+    `${colors.red}Total Errors:          ${totalErrors} (${((totalErrors / totalRequests) * 100).toFixed(1)}%)${colors.reset}\n`
+  );
 
   // Determine overall result
   const allPassed = failedTests === 0;
 
   if (allPassed) {
-    console.log(`${colors.green}╔═══════════════════════════════════════════════════════════╗${colors.reset}`);
-    console.log(`${colors.green}║                    ✓ ALL TESTS PASSED                     ║${colors.reset}`);
-    console.log(`${colors.green}║                                                           ║${colors.reset}`);
-    console.log(`${colors.green}║  Double-booking prevention is working correctly!          ║${colors.reset}`);
-    console.log(`${colors.green}║  - Exactly 1 booking succeeded per iteration              ║${colors.reset}`);
-    console.log(`${colors.green}║  - All duplicates returned 409 Conflict                   ║${colors.reset}`);
-    console.log(`${colors.green}║  - No unexpected errors occurred                          ║${colors.reset}`);
-    console.log(`${colors.green}╚═══════════════════════════════════════════════════════════╝${colors.reset}\n`);
+    console.log(
+      `${colors.green}╔═══════════════════════════════════════════════════════════╗${colors.reset}`
+    );
+    console.log(
+      `${colors.green}║                    ✓ ALL TESTS PASSED                     ║${colors.reset}`
+    );
+    console.log(
+      `${colors.green}║                                                           ║${colors.reset}`
+    );
+    console.log(
+      `${colors.green}║  Double-booking prevention is working correctly!          ║${colors.reset}`
+    );
+    console.log(
+      `${colors.green}║  - Exactly 1 booking succeeded per iteration              ║${colors.reset}`
+    );
+    console.log(
+      `${colors.green}║  - All duplicates returned 409 Conflict                   ║${colors.reset}`
+    );
+    console.log(
+      `${colors.green}║  - No unexpected errors occurred                          ║${colors.reset}`
+    );
+    console.log(
+      `${colors.green}╚═══════════════════════════════════════════════════════════╝${colors.reset}\n`
+    );
   } else {
-    console.log(`${colors.red}╔═══════════════════════════════════════════════════════════╗${colors.reset}`);
-    console.log(`${colors.red}║                    ✗ TESTS FAILED                         ║${colors.reset}`);
-    console.log(`${colors.red}║                                                           ║${colors.reset}`);
-    console.log(`${colors.red}║  Double-booking prevention has issues!                    ║${colors.reset}`);
-    console.log(`${colors.red}║  Please review the test results above.                    ║${colors.reset}`);
-    console.log(`${colors.red}╚═══════════════════════════════════════════════════════════╝${colors.reset}\n`);
+    console.log(
+      `${colors.red}╔═══════════════════════════════════════════════════════════╗${colors.reset}`
+    );
+    console.log(
+      `${colors.red}║                    ✗ TESTS FAILED                         ║${colors.reset}`
+    );
+    console.log(
+      `${colors.red}║                                                           ║${colors.reset}`
+    );
+    console.log(
+      `${colors.red}║  Double-booking prevention has issues!                    ║${colors.reset}`
+    );
+    console.log(
+      `${colors.red}║  Please review the test results above.                    ║${colors.reset}`
+    );
+    console.log(
+      `${colors.red}╚═══════════════════════════════════════════════════════════╝${colors.reset}\n`
+    );
   }
 
   return allPassed;
@@ -291,9 +338,15 @@ async function verifyServerRunning() {
  * Main test execution
  */
 async function main() {
-  console.log(`\n${colors.cyan}╔═══════════════════════════════════════════════════════════╗${colors.reset}`);
-  console.log(`${colors.cyan}║         CONCURRENCY TEST: DOUBLE-BOOKING PREVENTION       ║${colors.reset}`);
-  console.log(`${colors.cyan}╚═══════════════════════════════════════════════════════════╝${colors.reset}\n`);
+  console.log(
+    `\n${colors.cyan}╔═══════════════════════════════════════════════════════════╗${colors.reset}`
+  );
+  console.log(
+    `${colors.cyan}║         CONCURRENCY TEST: DOUBLE-BOOKING PREVENTION       ║${colors.reset}`
+  );
+  console.log(
+    `${colors.cyan}╚═══════════════════════════════════════════════════════════╝${colors.reset}\n`
+  );
 
   console.log(`Configuration:`);
   console.log(`  API URL:             ${API_BASE_URL}`);
@@ -318,7 +371,7 @@ async function main() {
 
     // Small delay between iterations
     if (i < TEST_ITERATIONS) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 

@@ -9,7 +9,10 @@ const router = express.Router();
  * @query   operation, serviceName, retryable, limit
  * @access  Admin only (should add auth middleware)
  */
-router.get('/unresolved', errorRecoveryController.getUnresolvedErrors.bind(errorRecoveryController));
+router.get(
+  '/unresolved',
+  errorRecoveryController.getUnresolvedErrors.bind(errorRecoveryController)
+);
 
 /**
  * @route   GET /admin/errors/stats

@@ -41,7 +41,9 @@ const errorHandler = (err, req, res, _next) => {
 
   // Unknown/Unexpected errors - minimal details to client
   const isProduction = env.NODE_ENV === 'production';
-  const message = isProduction ? 'Internal server error' : sanitizeErrorForClient(err, true).message;
+  const message = isProduction
+    ? 'Internal server error'
+    : sanitizeErrorForClient(err, true).message;
 
   // In development, include sanitized stack trace
   const stack = isProduction ? undefined : sanitizeErrorForClient(err, true).stack;

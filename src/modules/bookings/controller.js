@@ -46,11 +46,7 @@ class BookingController {
         };
 
         // Queue ServiceTitan job creation (critical priority)
-        await queueManager.addBookingJob(
-          'create-servicetitan-job',
-          bookingJobData,
-          'critical'
-        );
+        await queueManager.addBookingJob('create-servicetitan-job', bookingJobData, 'critical');
 
         logger.info('ServiceTitan job queued', {
           bookingId: booking.id,

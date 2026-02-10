@@ -24,11 +24,7 @@
  */
 
 const winstonLogger = require('../config/logger');
-const {
-  sanitizeData,
-  sanitizeError,
-  sanitizeRequest,
-} = require('./sanitize');
+const { sanitizeData, sanitizeError, sanitizeRequest } = require('./sanitize');
 
 /**
  * Safely logs a message with automatic PII sanitization

@@ -71,7 +71,10 @@ const sanitizeErrorMessage = (message) => {
       // Sanitize potential API keys or tokens (common patterns)
       .replace(/\b[A-Za-z0-9]{32,}\b/g, '***')
       // Sanitize potential UUIDs in error messages
-      .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '***-***-***-***-***')
+      .replace(
+        /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+        '***-***-***-***-***'
+      )
   );
 };
 

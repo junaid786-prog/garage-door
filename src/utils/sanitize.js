@@ -83,7 +83,7 @@ const maskAddress = (address) => {
   if (!address || typeof address !== 'string') return '[REDACTED]';
 
   // Split by comma to get address parts
-  const parts = address.split(',').map(p => p.trim());
+  const parts = address.split(',').map((p) => p.trim());
 
   if (parts.length <= 1) return '[ADDRESS]';
 
@@ -209,9 +209,9 @@ const sanitizeError = (error) => {
     // Remove absolute file paths (could contain usernames)
     sanitized.stack = error.stack
       .split('\n')
-      .map(line => {
+      .map((line) => {
         // Remove full file paths, keep only relative paths
-        return line.replace(/\/home\/[^/]+\//g, '/~/').replace(/\/Users\/[^/]+\//g, '/~/')
+        return line.replace(/\/home\/[^/]+\//g, '/~/').replace(/\/Users\/[^/]+\//g, '/~/');
       })
       .join('\n');
   }
@@ -232,7 +232,7 @@ const sanitizeData = (data) => {
 
   // Handle arrays
   if (Array.isArray(data)) {
-    return data.map(item => sanitizeData(item));
+    return data.map((item) => sanitizeData(item));
   }
 
   // Handle objects
@@ -248,13 +248,25 @@ const sanitizeData = (data) => {
       sanitized[key] = maskEmail(value);
     } else if (lowerKey.includes('address') && !lowerKey.includes('ip')) {
       sanitized[key] = maskAddress(value);
-    } else if (lowerKey.includes('name') && !lowerKey.includes('filename') && !lowerKey.includes('username')) {
+    } else if (
+      lowerKey.includes('name') &&
+      !lowerKey.includes('filename') &&
+      !lowerKey.includes('username')
+    ) {
       sanitized[key] = maskName(value);
-    } else if (lowerKey.includes('card') || lowerKey.includes('credit') || lowerKey.includes('payment')) {
+    } else if (
+      lowerKey.includes('card') ||
+      lowerKey.includes('credit') ||
+      lowerKey.includes('payment')
+    ) {
       sanitized[key] = '[REDACTED]';
     } else if (lowerKey.includes('ssn') || lowerKey.includes('social')) {
       sanitized[key] = '[REDACTED]';
-    } else if (lowerKey.includes('password') || lowerKey.includes('token') || lowerKey.includes('secret')) {
+    } else if (
+      lowerKey.includes('password') ||
+      lowerKey.includes('token') ||
+      lowerKey.includes('secret')
+    ) {
       sanitized[key] = '[REDACTED]';
     } else if (lowerKey.includes('note') || lowerKey.includes('comment')) {
       // Notes and comments might contain PII

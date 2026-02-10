@@ -9,6 +9,11 @@ const logger = require('../../utils/logger');
 /**
  * Health Check Controller
  * Provides system health status and circuit breaker monitoring
+ *
+ * NOTE: Health check endpoints intentionally use custom response formats
+ * (not the standard APIResponse format) for compatibility with monitoring
+ * systems (Kubernetes, load balancers, etc.). Error responses still use
+ * the global error handler for consistency.
  */
 class HealthController {
   /**
@@ -158,8 +163,9 @@ class HealthController {
    * Get circuit breaker status only
    * @param {Object} req - Express request
    * @param {Object} res - Express response
+   * @param {Function} next - Express next function
    */
-  async getCircuitBreakerStatus(req, res) {
+  async getCircuitBreakerStatus(req, res, next) {
     try {
       const status = {
         timestamp: new Date().toISOString(),
@@ -185,11 +191,7 @@ class HealthController {
       res.json(status);
     } catch (error) {
       logger.error('Failed to get circuit breaker status', { error: error.message });
-      res.status(500).json({
-        success: false,
-        error: 'Failed to retrieve circuit breaker status',
-        timestamp: new Date().toISOString(),
-      });
+      next(error);
     }
   }
 }

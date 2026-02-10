@@ -217,9 +217,7 @@ async function runTest() {
 
     // Collect results
     const successCount = results.filter((r) => r.success).length;
-    const durations = results
-      .filter((r) => r.success && r.duration)
-      .map((r) => r.duration);
+    const durations = results.filter((r) => r.success && r.duration).map((r) => r.duration);
 
     allDurations.push(...durations);
     allResults.push(...results);
@@ -233,9 +231,7 @@ async function runTest() {
       }
     }
 
-    console.log(
-      `  ✓ Completed in ${iterDuration}ms (${successCount}/${concurrency} successful)\n`
-    );
+    console.log(`  ✓ Completed in ${iterDuration}ms (${successCount}/${concurrency} successful)\n`);
   }
 
   // Calculate overall statistics
@@ -304,11 +300,7 @@ if (require.main === module) {
       const timestamp = new Date().toISOString().replace(/:/g, '-');
       const filename = `performance-baseline-${timestamp}.json`;
 
-      fs.writeFileSync(
-        filename,
-        JSON.stringify(results, null, 2),
-        'utf-8'
-      );
+      fs.writeFileSync(filename, JSON.stringify(results, null, 2), 'utf-8');
 
       console.log(`Results saved to: ${filename}\n`);
       process.exit(0);

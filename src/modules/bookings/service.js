@@ -52,7 +52,7 @@ class BookingService {
         logger.warn('Unique constraint violation - slot already booked', {
           fields: error.fields,
           message: error.message,
-          parent: error.parent?.detail
+          parent: error.parent?.detail,
         });
 
         // Check if it's the slot_id constraint
@@ -64,9 +64,7 @@ class BookingService {
 
         // Check if it's the service_titan_job_id constraint
         if (error.fields && error.fields.service_titan_job_id) {
-          throw new ConflictError(
-            'ServiceTitan job ID conflict. Please try again.'
-          );
+          throw new ConflictError('ServiceTitan job ID conflict. Please try again.');
         }
 
         // Generic unique constraint error

@@ -61,7 +61,7 @@ function createCircuitBreaker(fn, options = {}, fallback = null) {
   breaker.on('success', (result) => {
     logger.debug(`Circuit breaker success for ${config.name}`, {
       service: config.name,
-      state: breaker.opened ? 'open' : breaker.halfOpen ? 'half-open' : 'closed'
+      state: breaker.opened ? 'open' : breaker.halfOpen ? 'half-open' : 'closed',
     });
   });
 
@@ -152,9 +152,7 @@ function wrapServiceMethod(service, methodName, options = {}, fallback = null) {
   const originalMethod = service[methodName].bind(service);
   const breakerName = options.name || `${service.constructor.name}.${methodName}`;
 
-  return createCircuitBreaker(
-    originalMethod, { ...options, name: breakerName }, fallback
-  );
+  return createCircuitBreaker(originalMethod, { ...options, name: breakerName }, fallback);
 }
 
 module.exports = {

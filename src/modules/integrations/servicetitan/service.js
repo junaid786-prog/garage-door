@@ -41,11 +41,11 @@ class ServiceTitanService {
         errorThresholdPercentage: 50,
         resetTimeout: 5000,
       },
-      async (bookingData) => {
+      (bookingData) => {
         // Fallback: Store job for later retry
         logger.warn('ServiceTitan circuit breaker open, using fallback', {
           operation: 'createJob',
-          bookingId: bookingData.bookingId
+          bookingId: bookingData.bookingId,
         });
         throw new ServiceUnavailableError(
           'ServiceTitan is temporarily unavailable. Job will be created in background.',
@@ -55,37 +55,28 @@ class ServiceTitanService {
     );
 
     // Circuit breaker for job updates
-    this.updateJobBreaker = createCircuitBreaker(
-      this._updateJobStatusInternal.bind(this),
-      {
-        name: 'ServiceTitan.updateJobStatus',
-        timeout: 8000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.updateJobBreaker = createCircuitBreaker(this._updateJobStatusInternal.bind(this), {
+      name: 'ServiceTitan.updateJobStatus',
+      timeout: 8000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
 
     // Circuit breaker for getting jobs
-    this.getJobBreaker = createCircuitBreaker(
-      this._getJobInternal.bind(this),
-      {
-        name: 'ServiceTitan.getJob',
-        timeout: 5000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.getJobBreaker = createCircuitBreaker(this._getJobInternal.bind(this), {
+      name: 'ServiceTitan.getJob',
+      timeout: 5000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
 
     // Circuit breaker for cancellations
-    this.cancelJobBreaker = createCircuitBreaker(
-      this._cancelJobInternal.bind(this),
-      {
-        name: 'ServiceTitan.cancelJob',
-        timeout: 8000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.cancelJobBreaker = createCircuitBreaker(this._cancelJobInternal.bind(this), {
+      name: 'ServiceTitan.cancelJob',
+      timeout: 8000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
   }
 
   /**
@@ -97,13 +88,21 @@ class ServiceTitanService {
 
     try {
       const maxJob = await Booking.findOne({
-        attributes: [[Booking.sequelize.fn('MAX', Booking.sequelize.cast(Booking.sequelize.col('service_titan_job_id'), 'INTEGER')), 'maxId']],
+        attributes: [
+          [
+            Booking.sequelize.fn(
+              'MAX',
+              Booking.sequelize.cast(Booking.sequelize.col('service_titan_job_id'), 'INTEGER')
+            ),
+            'maxId',
+          ],
+        ],
         where: {
           service_titan_job_id: {
-            [Booking.sequelize.Op.ne]: null
-          }
+            [Booking.sequelize.Op.ne]: null,
+          },
         },
-        raw: true
+        raw: true,
       });
 
       if (maxJob && maxJob.maxId) {
@@ -111,7 +110,7 @@ class ServiceTitanService {
       }
 
       this.initialized = true;
-    } catch (error) {
+    } catch {
       // If initialization fails, continue with default counter
       this.initialized = true;
     }
@@ -180,7 +179,7 @@ class ServiceTitanService {
     await this._simulateDelay(800);
 
     // Simulate different error scenarios
-    await this._simulateErrors(bookingData);
+    this._simulateErrors(bookingData);
 
     // Generate unique job ID using timestamp + random to avoid collisions
     const jobId = Date.now() + Math.floor(Math.random() * 1000);
@@ -458,7 +457,7 @@ class ServiceTitanService {
   /**
    * Simulate various error scenarios
    */
-  async _simulateErrors(bookingData) {
+  _simulateErrors(bookingData) {
     // Simulate random API failures (5% chance)
     if (Math.random() < 0.05) {
       throw new Error('ServiceTitan API temporarily unavailable');
@@ -481,8 +480,10 @@ class ServiceTitanService {
   /**
    * Simulate API delay
    */
-  async _simulateDelay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  _simulateDelay(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   /**
@@ -582,7 +583,7 @@ class ServiceTitanService {
       'already exists',
     ];
 
-    if (nonRetryable.some(term => message.includes(term))) {
+    if (nonRetryable.some((term) => message.includes(term))) {
       return false;
     }
 
@@ -595,7 +596,7 @@ class ServiceTitanService {
       'service unavailable',
     ];
 
-    if (retryable.some(term => message.includes(term))) {
+    if (retryable.some((term) => message.includes(term))) {
       return true;
     }
 
@@ -610,21 +611,37 @@ class ServiceTitanService {
   getCircuitBreakerHealth() {
     return {
       createJob: {
-        state: this.createJobBreaker.opened ? 'open' : this.createJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.createJobBreaker.stats
+        state: this.createJobBreaker.opened
+          ? 'open'
+          : this.createJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.createJobBreaker.stats,
       },
       updateJob: {
-        state: this.updateJobBreaker.opened ? 'open' : this.updateJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.updateJobBreaker.stats
+        state: this.updateJobBreaker.opened
+          ? 'open'
+          : this.updateJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.updateJobBreaker.stats,
       },
       getJob: {
-        state: this.getJobBreaker.opened ? 'open' : this.getJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.getJobBreaker.stats
+        state: this.getJobBreaker.opened
+          ? 'open'
+          : this.getJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.getJobBreaker.stats,
       },
       cancelJob: {
-        state: this.cancelJobBreaker.opened ? 'open' : this.cancelJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.cancelJobBreaker.stats
-      }
+        state: this.cancelJobBreaker.opened
+          ? 'open'
+          : this.cancelJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.cancelJobBreaker.stats,
+      },
     };
   }
 }

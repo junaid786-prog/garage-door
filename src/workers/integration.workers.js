@@ -136,7 +136,11 @@ const retryFailedJob = async (job) => {
   const { originalJobData, failureReason, attemptNumber } = job.data;
 
   try {
-    logger.info('Retrying failed job', { attemptNumber, jobType: originalJobData.type, jobId: job.id });
+    logger.info('Retrying failed job', {
+      attemptNumber,
+      jobType: originalJobData.type,
+      jobId: job.id,
+    });
 
     // Add exponential backoff delay
     const backoffDelay = Math.min(1000 * Math.pow(2, attemptNumber - 1), 30000); // Max 30 seconds

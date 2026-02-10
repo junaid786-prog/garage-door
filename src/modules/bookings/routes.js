@@ -19,10 +19,20 @@ router.get('/', readRateLimiter(), middleware.validateBookingQuery, controller.g
 router.get('/:id', readRateLimiter(), controller.getBookingById);
 
 // Update booking - Booking rate limit
-router.put('/:id', bookingRateLimiter(), middleware.validateBookingUpdate, controller.updateBooking);
+router.put(
+  '/:id',
+  bookingRateLimiter(),
+  middleware.validateBookingUpdate,
+  controller.updateBooking
+);
 
 // Update booking status only - Booking rate limit
-router.patch('/:id/status', bookingRateLimiter(), middleware.validateBookingStatus, controller.updateBookingStatus);
+router.patch(
+  '/:id/status',
+  bookingRateLimiter(),
+  middleware.validateBookingStatus,
+  controller.updateBookingStatus
+);
 
 // Delete booking (soft delete - marks as cancelled) - Booking rate limit
 router.delete('/:id', bookingRateLimiter(), controller.deleteBooking);
