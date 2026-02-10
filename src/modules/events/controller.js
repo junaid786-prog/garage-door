@@ -1,5 +1,6 @@
 const service = require('./service');
 const APIResponse = require('../../utils/response');
+const { ValidationError } = require('../../utils/errors');
 
 /**
  * Event controller - handles event tracking requests
@@ -88,7 +89,7 @@ class EventController {
       const { sessionId } = req.params;
 
       if (!sessionId) {
-        return APIResponse.badRequest(res, 'Session ID is required');
+        throw new ValidationError('Session ID is required');
       }
 
       const events = await service.getSessionEvents(sessionId);
@@ -109,7 +110,7 @@ class EventController {
       const { eventNames } = req.body;
 
       if (!eventNames || !Array.isArray(eventNames)) {
-        return APIResponse.badRequest(res, 'Event names array is required in request body');
+        throw new ValidationError('Event names array is required in request body');
       }
 
       const filters = {

@@ -1,5 +1,6 @@
 const service = require('./service');
 const APIResponse = require('../../utils/response');
+const { ValidationError } = require('../../utils/errors');
 
 /**
  * Scheduling controller - handles scheduling requests from frontend
@@ -16,7 +17,7 @@ class SchedulingController {
       const { zip } = req.query;
 
       if (!zip) {
-        return APIResponse.badRequest(res, 'ZIP code is required');
+        throw new ValidationError('ZIP code is required');
       }
 
       // Optional parameters
@@ -25,12 +26,12 @@ class SchedulingController {
 
       // Validate date if provided
       if (startDate && isNaN(startDate.getTime())) {
-        return APIResponse.badRequest(res, 'Invalid date format. Use YYYY-MM-DD');
+        throw new ValidationError('Invalid date format. Use YYYY-MM-DD');
       }
 
       // Validate days parameter
       if (days < 1 || days > 30) {
-        return APIResponse.badRequest(res, 'Days parameter must be between 1 and 30');
+        throw new ValidationError('Days parameter must be between 1 and 30');
       }
 
       // Service now throws errors instead of returning result objects
@@ -53,11 +54,11 @@ class SchedulingController {
       const { slotId, bookingId, customerInfo } = req.body;
 
       if (!slotId) {
-        return APIResponse.badRequest(res, 'Slot ID is required');
+        throw new ValidationError('Slot ID is required');
       }
 
       if (!bookingId) {
-        return APIResponse.badRequest(res, 'Booking ID is required');
+        throw new ValidationError('Booking ID is required');
       }
 
       // Service now throws errors instead of returning result objects
@@ -80,7 +81,7 @@ class SchedulingController {
       const { zip } = req.query;
 
       if (!zip) {
-        return APIResponse.badRequest(res, 'ZIP code is required');
+        throw new ValidationError('ZIP code is required');
       }
 
       // Service now throws errors instead of returning result objects
@@ -104,11 +105,11 @@ class SchedulingController {
       const { bookingId } = req.body;
 
       if (!slotId) {
-        return APIResponse.badRequest(res, 'Slot ID is required');
+        throw new ValidationError('Slot ID is required');
       }
 
       if (!bookingId) {
-        return APIResponse.badRequest(res, 'Booking ID is required');
+        throw new ValidationError('Booking ID is required');
       }
 
       // Service now throws errors instead of returning result objects
@@ -194,15 +195,7 @@ class SchedulingController {
         },
       };
 
-      if (health.success) {
-        return APIResponse.success(
-          res,
-          response,
-          'Scheduling system health retrieved successfully'
-        );
-      } else {
-        return APIResponse.error(res, health.error, 503);
-      }
+      return APIResponse.success(res, response, 'Scheduling system health retrieved successfully');
     } catch (error) {
       next(error);
     }

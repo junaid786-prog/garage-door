@@ -1,5 +1,6 @@
 const service = require('./service');
 const APIResponse = require('../../utils/response');
+const { ValidationError } = require('../../utils/errors');
 
 /**
  * Geo controller - handles geolocation and service area requests
@@ -16,7 +17,7 @@ class GeoController {
       const { zipCode } = req.params;
 
       if (!zipCode) {
-        return APIResponse.badRequest(res, 'ZIP code is required');
+        throw new ValidationError('ZIP code is required');
       }
 
       const locationData = await service.getLocationByZip(zipCode);
@@ -37,14 +38,14 @@ class GeoController {
       const { latitude, longitude } = req.query;
 
       if (!latitude || !longitude) {
-        return APIResponse.badRequest(res, 'Latitude and longitude are required');
+        throw new ValidationError('Latitude and longitude are required');
       }
 
       const lat = parseFloat(latitude);
       const lng = parseFloat(longitude);
 
       if (isNaN(lat) || isNaN(lng)) {
-        return APIResponse.badRequest(res, 'Invalid latitude or longitude format');
+        throw new ValidationError('Invalid latitude or longitude format');
       }
 
       const locationData = await service.getLocationByCoordinates(lat, lng);
@@ -65,7 +66,7 @@ class GeoController {
       const { zipCode } = req.params;
 
       if (!zipCode) {
-        return APIResponse.badRequest(res, 'ZIP code is required');
+        throw new ValidationError('ZIP code is required');
       }
 
       const validation = await service.validateServiceArea(zipCode);
@@ -101,7 +102,7 @@ class GeoController {
       const { point1, point2 } = req.body;
 
       if (!point1 || !point2) {
-        return APIResponse.badRequest(res, 'Two points are required for distance calculation');
+        throw new ValidationError('Two points are required for distance calculation');
       }
 
       const distanceData = await service.calculateDistance(point1, point2);

@@ -2,6 +2,7 @@ const service = require('./service');
 const APIResponse = require('../../utils/response');
 const queueManager = require('../../config/queue');
 const logger = require('../../utils/logger');
+const { NotFoundError } = require('../../utils/errors');
 
 /**
  * Booking controller - handles booking HTTP requests
@@ -100,7 +101,7 @@ class BookingController {
       const booking = await service.getBookingById(id);
 
       if (!booking) {
-        return APIResponse.notFound(res, 'Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       return APIResponse.success(res, booking, 'Booking retrieved successfully');
@@ -138,7 +139,7 @@ class BookingController {
       const booking = await service.updateBooking(id, req.body);
 
       if (!booking) {
-        return APIResponse.notFound(res, 'Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       return APIResponse.success(res, booking, 'Booking updated successfully');
@@ -161,7 +162,7 @@ class BookingController {
       const booking = await service.updateBookingStatus(id, status);
 
       if (!booking) {
-        return APIResponse.notFound(res, 'Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       return APIResponse.success(res, booking, 'Booking status updated successfully');
@@ -182,7 +183,7 @@ class BookingController {
       const success = await service.deleteBooking(id);
 
       if (!success) {
-        return APIResponse.notFound(res, 'Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       return APIResponse.noContent(res);
@@ -205,7 +206,7 @@ class BookingController {
       const booking = await service.linkServiceTitanJob(id, serviceTitanJobId);
 
       if (!booking) {
-        return APIResponse.notFound(res, 'Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       return APIResponse.success(res, booking, 'ServiceTitan job linked successfully');

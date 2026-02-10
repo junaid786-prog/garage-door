@@ -1,5 +1,7 @@
 const service = require('./service');
 const APIResponse = require('../../../utils/response');
+const { ValidationError } = require('../../../utils/errors');
+const logger = require('../../../utils/logger');
 
 /**
  * ServiceTitan integration controller
@@ -31,8 +33,8 @@ class ServiceTitanController {
     try {
       const bookingData = req.body;
 
-      if (!bookingData) {
-        return APIResponse.badRequest(res, 'Booking data is required');
+      if (!bookingData || Object.keys(bookingData).length === 0) {
+        throw new ValidationError('Booking data is required');
       }
 
       // Authenticate first (in real implementation, this would use cached tokens)
@@ -57,16 +59,13 @@ class ServiceTitanController {
     try {
       const { jobId } = req.params;
 
-      if (!jobId) {
-        return APIResponse.badRequest(res, 'Job ID is required');
+      if (!jobId || jobId.trim() === '') {
+        throw new ValidationError('Job ID is required');
       }
 
       const job = await service.getJob(jobId);
       return APIResponse.success(res, job, 'Job retrieved successfully');
     } catch (error) {
-      if (error.message.includes('not found')) {
-        return APIResponse.notFound(res, error.message);
-      }
       next(error);
     }
   }
@@ -82,23 +81,17 @@ class ServiceTitanController {
       const { jobId } = req.params;
       const { status } = req.body;
 
-      if (!jobId) {
-        return APIResponse.badRequest(res, 'Job ID is required');
+      if (!jobId || jobId.trim() === '') {
+        throw new ValidationError('Job ID is required');
       }
 
-      if (!status) {
-        return APIResponse.badRequest(res, 'Status is required');
+      if (!status || status.trim() === '') {
+        throw new ValidationError('Status is required');
       }
 
       const updatedJob = await service.updateJobStatus(jobId, status);
       return APIResponse.success(res, updatedJob, 'Job status updated successfully');
     } catch (error) {
-      if (error.message.includes('not found')) {
-        return APIResponse.notFound(res, error.message);
-      }
-      if (error.message.includes('Invalid status')) {
-        return APIResponse.badRequest(res, error.message);
-      }
       next(error);
     }
   }
@@ -114,18 +107,18 @@ class ServiceTitanController {
       const { startDate, endDate } = req.query;
 
       if (!startDate || !endDate) {
-        return APIResponse.badRequest(res, 'Start date and end date are required');
+        throw new ValidationError('Start date and end date are required');
       }
 
       const start = new Date(startDate);
       const end = new Date(endDate);
 
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return APIResponse.badRequest(res, 'Invalid date format');
+        throw new ValidationError('Invalid date format');
       }
 
       if (start > end) {
-        return APIResponse.badRequest(res, 'Start date cannot be after end date');
+        throw new ValidationError('Start date cannot be after end date');
       }
 
       const jobs = await service.getJobsByDateRange(start, end);
@@ -146,19 +139,13 @@ class ServiceTitanController {
       const { jobId } = req.params;
       const { reason } = req.body;
 
-      if (!jobId) {
-        return APIResponse.badRequest(res, 'Job ID is required');
+      if (!jobId || jobId.trim() === '') {
+        throw new ValidationError('Job ID is required');
       }
 
       const cancelledJob = await service.cancelJob(jobId, reason);
       return APIResponse.success(res, cancelledJob, 'Job cancelled successfully');
     } catch (error) {
-      if (error.message.includes('not found')) {
-        return APIResponse.notFound(res, error.message);
-      }
-      if (error.message.includes('Cannot cancel')) {
-        return APIResponse.badRequest(res, error.message);
-      }
       next(error);
     }
   }
@@ -215,11 +202,11 @@ class ServiceTitanController {
       const { bookings } = req.body;
 
       if (!Array.isArray(bookings) || bookings.length === 0) {
-        return APIResponse.badRequest(res, 'Bookings array is required');
+        throw new ValidationError('Bookings array is required');
       }
 
       if (bookings.length > 100) {
-        return APIResponse.badRequest(res, 'Maximum 100 bookings per batch');
+        throw new ValidationError('Maximum 100 bookings per batch');
       }
 
       // Authenticate once for batch
