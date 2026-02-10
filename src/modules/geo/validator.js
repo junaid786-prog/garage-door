@@ -45,12 +45,17 @@ const validate = (schema, property = 'body') => {
     const { error } = schema.validate(req[property]);
 
     if (error) {
-      const errorMessage = error.details[0].message;
       return res.status(400).json({
         success: false,
-        error: 'Validation Error',
-        message: errorMessage,
-        details: error.details,
+        message: error.details[0].message,
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: error.details.map((detail) => ({
+            field: detail.path.join('.'),
+            message: detail.message,
+          })),
+        },
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -75,8 +80,15 @@ const validateGeoDataQuery = (req, res, next) => {
     if (error) {
       return res.status(400).json({
         success: false,
-        error: 'Validation Error',
         message: 'ZIP code must be in format 12345 or 12345-1234',
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: [{
+            field: 'zip',
+            message: 'ZIP code must be in format 12345 or 12345-1234',
+          }],
+        },
+        timestamp: new Date().toISOString(),
       });
     }
   }

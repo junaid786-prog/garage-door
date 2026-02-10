@@ -110,17 +110,17 @@ const validate = (schema, property = 'body') => {
     });
 
     if (error) {
-      const errorDetails = error.details.map((detail) => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-        value: detail.context.value,
-      }));
-
       return res.status(400).json({
         success: false,
-        error: 'Validation Error',
         message: 'Invalid input data',
-        details: errorDetails,
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: error.details.map((detail) => ({
+            field: detail.path.join('.'),
+            message: detail.message,
+          })),
+        },
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -148,16 +148,30 @@ const validateJobId = (req, res, next) => {
   if (!jobId) {
     return res.status(400).json({
       success: false,
-      error: 'Validation Error',
       message: 'Job ID is required',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: [{
+          field: 'jobId',
+          message: 'Job ID is required',
+        }],
+      },
+      timestamp: new Date().toISOString(),
     });
   }
 
   if (!/^\d+$/.test(jobId)) {
     return res.status(400).json({
       success: false,
-      error: 'Validation Error',
       message: 'Job ID must be a number',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: [{
+          field: 'jobId',
+          message: 'Job ID must be a number',
+        }],
+      },
+      timestamp: new Date().toISOString(),
     });
   }
 
