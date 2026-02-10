@@ -20,7 +20,7 @@ class SchedulingController {
       }
 
       // Optional parameters
-      let startDate = req.query.date ? new Date(req.query.date) : null;
+      const startDate = req.query.date ? new Date(req.query.date) : null;
       const days = req.query.days ? parseInt(req.query.days) : 7;
 
       // Validate date if provided
@@ -33,24 +33,10 @@ class SchedulingController {
         return APIResponse.badRequest(res, 'Days parameter must be between 1 and 30');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.getAvailableSlots(zip, startDate, days);
 
-      if (result.success) {
-        return APIResponse.success(res, result, 'Available slots retrieved successfully');
-      } else {
-        // Handle kill switch
-        if (result.disabled) {
-          return APIResponse.error(res, result.error, 503);
-        }
-
-        // Handle specific error cases
-        if (result.error.includes('service not available')) {
-          return APIResponse.badRequest(res, result.error);
-        }
-
-        // Other errors
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.success(res, result, 'Available slots retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -74,28 +60,10 @@ class SchedulingController {
         return APIResponse.badRequest(res, 'Booking ID is required');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.reserveSlot(slotId, bookingId, customerInfo);
 
-      if (result.success) {
-        return APIResponse.created(res, result, 'Slot reserved successfully');
-      } else {
-        // Handle kill switch
-        if (result.disabled) {
-          return APIResponse.error(res, result.error, 503);
-        }
-
-        // Handle specific error cases
-        if (result.error.includes('already reserved')) {
-          return APIResponse.conflict(res, result.error);
-        }
-
-        if (result.error.includes('not available')) {
-          return APIResponse.badRequest(res, result.error);
-        }
-
-        // Other errors
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.created(res, result, 'Slot reserved successfully');
     } catch (error) {
       next(error);
     }
@@ -115,18 +83,10 @@ class SchedulingController {
         return APIResponse.badRequest(res, 'ZIP code is required');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.checkServiceAvailability(zip);
 
-      if (result.success) {
-        return APIResponse.success(res, result, 'Service availability checked successfully');
-      } else {
-        // Handle kill switch
-        if (result.disabled) {
-          return APIResponse.error(res, result.error, 503);
-        }
-
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.success(res, result, 'Service availability checked successfully');
     } catch (error) {
       next(error);
     }
@@ -151,17 +111,10 @@ class SchedulingController {
         return APIResponse.badRequest(res, 'Booking ID is required');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.cancelSlot(slotId, bookingId);
 
-      if (result.success) {
-        return APIResponse.success(res, result, 'Slot reservation cancelled successfully');
-      } else {
-        if (result.error.includes('not found')) {
-          return APIResponse.notFound(res, result.error);
-        }
-
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.success(res, result, 'Slot reservation cancelled successfully');
     } catch (error) {
       next(error);
     }

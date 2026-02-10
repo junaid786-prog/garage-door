@@ -1,8 +1,9 @@
 const schedulingProIntegration = require('../integrations/schedulingpro/integration');
 const geoService = require('../geo/service'); // Will enhance this
 const env = require('../../config/env');
-const reservationService = require('../../services/reservationService');
+// const reservationService = require('../../services/reservationService'); // V2: Uncomment for Redis reservations
 const logger = require('../../utils/logger');
+const { ServiceUnavailableError, ValidationError } = require('../../utils/errors');
 
 /**
  * Scheduling service - handles scheduling business logic with caching and reservations
@@ -27,112 +28,93 @@ class SchedulingService {
    * @returns {Promise<Object>} Available slots grouped by timeframe
    */
   async getAvailableSlots(zipCode, startDate = null, days = 7) {
-    try {
-      // Check kill switch - instant disable without redeploy
-      if (env.DISABLE_SCHEDULING) {
-        logger.warn('Scheduling is currently disabled via kill switch', { zipCode });
-        return {
-          success: false,
-          error: 'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
-          disabled: true,
-          zipCode,
-        };
-      }
-      // Validate ZIP code using enhanced geo service
-      const schedulingValidation = await geoService.validateSchedulingAvailability(zipCode);
-      if (!schedulingValidation.isServiceable || !schedulingValidation.hasScheduling) {
-        return {
-          success: false,
-          error: `Scheduling service not available in ZIP code: ${zipCode}`,
-          zipCode,
-          serviceHours: null,
-        };
-      }
-
-      // Set default start date to today
-      if (!startDate) {
-        startDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
-      }
-
-      // Set end date
-      const endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + days);
-
-      // Check cache first
-      const cacheKey = this._generateCacheKey(zipCode, startDate, endDate);
-      const cachedResult = this._getFromCache(cacheKey);
-
-      if (cachedResult) {
-        logger.debug('Slots cache hit', { zipCode, startDate });
-        return {
-          ...cachedResult,
-          cached: true,
-          cacheAge: Date.now() - cachedResult.cachedAt,
-        };
-      }
-
-      // Fetch from SchedulingPro
-      logger.debug('Fetching slots from SchedulingPro', { zipCode, startDate });
-      const result = await schedulingProIntegration.getAvailableSlots(zipCode, startDate, endDate);
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error,
-          zipCode,
-          shouldRetry: result.shouldRetry,
-        };
-      }
-
-      // Filter out unavailable slots and past slots
-      const availableSlots = result.slots.filter((slot) => {
-        if (!slot.available) return false;
-
-        // Check if slot is in the past
-        const slotDateTime = new Date(`${slot.date}T${slot.startTime}:00`);
-        return slotDateTime > new Date();
-      });
-
-      // Group slots by timeframe
-      const groupedSlots = schedulingProIntegration.groupSlotsByTimeframe(
-        availableSlots,
-        result.timezone
+    // Check kill switch - instant disable without redeploy
+    if (env.DISABLE_SCHEDULING) {
+      logger.warn('Scheduling is currently disabled via kill switch', { zipCode });
+      throw new ServiceUnavailableError(
+        'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
+        'Scheduling'
       );
+    }
 
-      // Format response
-      const response = {
-        success: true,
-        zipCode: result.zipCode,
-        timezone: result.timezone,
-        dateRange: {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        },
-        totalSlots: result.totalSlots,
-        availableSlots: availableSlots.length,
-        groupedSlots,
-        cached: false,
-        cachedAt: Date.now(),
-      };
+    // Validate ZIP code using enhanced geo service
+    const schedulingValidation = await geoService.validateSchedulingAvailability(zipCode);
+    if (!schedulingValidation.isServiceable || !schedulingValidation.hasScheduling) {
+      throw new ValidationError(`Scheduling service not available in ZIP code: ${zipCode}`);
+    }
 
-      // Cache the result
-      this._setCache(cacheKey, response);
+    // Set default start date to today
+    let effectiveStartDate = startDate;
+    if (!effectiveStartDate) {
+      effectiveStartDate = new Date();
+      effectiveStartDate.setHours(0, 0, 0, 0);
+    }
 
-      return response;
-    } catch (error) {
-      logger.error('Failed to get time slots', {
-        zipCode,
-        startDate,
-        error,
-      });
+    // Set end date
+    const endDate = new Date(effectiveStartDate);
+    endDate.setDate(effectiveStartDate.getDate() + days);
 
+    // Check cache first
+    const cacheKey = this._generateCacheKey(zipCode, effectiveStartDate, endDate);
+    const cachedResult = this._getFromCache(cacheKey);
+
+    if (cachedResult) {
+      logger.debug('Slots cache hit', { zipCode, startDate: effectiveStartDate });
       return {
-        success: false,
-        error: error.message,
-        zipCode,
+        ...cachedResult,
+        cached: true,
+        cacheAge: Date.now() - cachedResult.cachedAt,
       };
     }
+
+    // Fetch from SchedulingPro
+    logger.debug('Fetching slots from SchedulingPro', { zipCode, startDate: effectiveStartDate });
+    const result = await schedulingProIntegration.getAvailableSlots(
+      zipCode,
+      effectiveStartDate,
+      endDate
+    );
+
+    if (!result.success) {
+      // SchedulingPro integration returns result objects, will be refactored in future
+      throw new ServiceUnavailableError(result.error || 'Failed to fetch slots', 'SchedulingPro');
+    }
+
+    // Filter out unavailable slots and past slots
+    const availableSlots = result.slots.filter((slot) => {
+      if (!slot.available) return false;
+
+      // Check if slot is in the past
+      const slotDateTime = new Date(`${slot.date}T${slot.startTime}:00`);
+      return slotDateTime > new Date();
+    });
+
+    // Group slots by timeframe
+    const groupedSlots = schedulingProIntegration.groupSlotsByTimeframe(
+      availableSlots,
+      result.timezone
+    );
+
+    // Format response
+    const response = {
+      success: true,
+      zipCode: result.zipCode,
+      timezone: result.timezone,
+      dateRange: {
+        startDate: effectiveStartDate.toISOString(),
+        endDate: endDate.toISOString(),
+      },
+      totalSlots: result.totalSlots,
+      availableSlots: availableSlots.length,
+      groupedSlots,
+      cached: false,
+      cachedAt: Date.now(),
+    };
+
+    // Cache the result
+    this._setCache(cacheKey, response);
+
+    return response;
   }
 
   /**
@@ -142,74 +124,54 @@ class SchedulingService {
    * @param {Object} customerInfo - Customer information
    * @returns {Promise<Object>} Reservation result
    */
-  async reserveSlot(slotId, bookingId, customerInfo = {}) {
-    try {
-      // Check kill switch
-      if (env.DISABLE_SCHEDULING) {
-        logger.warn('Slot reservation blocked - scheduling disabled via kill switch', {
-          slotId,
-          bookingId,
-        });
-        return {
-          success: false,
-          error: 'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
-          disabled: true,
-          slotId,
-        };
-      }
-
-      // V1: Redis reservations removed per client requirement (no 5-minute holds)
-      // V2: Restore Redis reservation checks here for multi-user slot holding
-
-      // Reserve slot with SchedulingPro
-      const result = await schedulingProIntegration.reserveSlot(
+  async reserveSlot(slotId, bookingId, _customerInfo = {}) {
+    // Check kill switch
+    if (env.DISABLE_SCHEDULING) {
+      logger.warn('Slot reservation blocked - scheduling disabled via kill switch', {
         slotId,
         bookingId,
-        this.reservationTimeout
+      });
+      throw new ServiceUnavailableError(
+        'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
+        'Scheduling'
       );
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error,
-          slotId,
-          shouldRetry: result.shouldRetry,
-        };
-      }
-
-      // V1: Redis reservation storage removed
-      // V2: Restore reservationService.reserveSlot() here
-
-      logger.info('Slot reserved successfully', {
-        slotId,
-        timeoutMinutes: this.reservationTimeout,
-        bookingId,
-      });
-
-      return {
-        success: true,
-        reservation: {
-          slotId,
-          bookingId,
-          reservedAt: result.reservation.reservedAt,
-          expiresAt: result.reservation.expiresAt,
-          reservationMinutes: this.reservationTimeout,
-        },
-        slot: result.slot,
-      };
-    } catch (error) {
-      logger.error('Slot reservation failed', {
-        slotId,
-        bookingId,
-        error,
-      });
-
-      return {
-        success: false,
-        error: error.message,
-        slotId,
-      };
     }
+
+    // V1: Redis reservations removed per client requirement (no 5-minute holds)
+    // V2: Restore Redis reservation checks here for multi-user slot holding
+
+    // Reserve slot with SchedulingPro
+    const result = await schedulingProIntegration.reserveSlot(
+      slotId,
+      bookingId,
+      this.reservationTimeout
+    );
+
+    if (!result.success) {
+      // SchedulingPro integration returns result objects, will be refactored in future
+      throw new ServiceUnavailableError(result.error || 'Failed to reserve slot', 'SchedulingPro');
+    }
+
+    // V1: Redis reservation storage removed
+    // V2: Restore reservationService.reserveSlot() here
+
+    logger.info('Slot reserved successfully', {
+      slotId,
+      timeoutMinutes: this.reservationTimeout,
+      bookingId,
+    });
+
+    return {
+      success: true,
+      reservation: {
+        slotId,
+        bookingId,
+        reservedAt: result.reservation.reservedAt,
+        expiresAt: result.reservation.expiresAt,
+        reservationMinutes: this.reservationTimeout,
+      },
+      slot: result.slot,
+    };
   }
 
   /**
@@ -219,37 +181,26 @@ class SchedulingService {
    * @returns {Promise<Object>} Confirmation result
    */
   async confirmReservedSlot(slotId, bookingId) {
-    try {
-      // V1: Redis verification removed - slots confirmed directly with SchedulingPro
-      // V2: Restore reservationService.verifyReservation() here
+    // V1: Redis verification removed - slots confirmed directly with SchedulingPro
+    // V2: Restore reservationService.verifyReservation() here
 
-      // Confirm with SchedulingPro
-      const result = await schedulingProIntegration.confirmSlot(slotId, bookingId);
+    // Confirm with SchedulingPro
+    const result = await schedulingProIntegration.confirmSlot(slotId, bookingId);
 
-      if (result.success) {
-        // V1: No Redis cleanup needed (no reservations)
-        // V2: Restore reservationService.releaseSlot() here
+    if (result.success) {
+      // V1: No Redis cleanup needed (no reservations)
+      // V2: Restore reservationService.releaseSlot() here
 
-        // Invalidate slots cache for this area
-        this._invalidateSlotsCacheForSlot(slotId);
+      // Invalidate slots cache for this area
+      this._invalidateSlotsCacheForSlot(slotId);
 
-        logger.info('Slot confirmed', { slotId, bookingId });
-      }
-
-      return result;
-    } catch (error) {
-      logger.error('Slot confirmation failed', {
-        slotId,
-        bookingId,
-        error,
-      });
-
-      return {
-        success: false,
-        error: error.message,
-        slotId,
-      };
+      logger.info('Slot confirmed', { slotId, bookingId });
+    } else {
+      // SchedulingPro integration returns result objects, will be refactored in future
+      throw new ServiceUnavailableError(result.error || 'Failed to confirm slot', 'SchedulingPro');
     }
+
+    return result;
   }
 
   /**
@@ -259,34 +210,23 @@ class SchedulingService {
    * @returns {Promise<Object>} Cancellation result
    */
   async cancelSlot(slotId, bookingId) {
-    try {
-      // V1: Redis reservation removal - cancel directly with SchedulingPro
-      // V2: Restore reservationService.verifyReservation() and releaseSlot() here
+    // V1: Redis reservation removal - cancel directly with SchedulingPro
+    // V2: Restore reservationService.verifyReservation() and releaseSlot() here
 
-      // Cancel with SchedulingPro
-      const result = await schedulingProIntegration.cancelSlot(slotId, bookingId);
+    // Cancel with SchedulingPro
+    const result = await schedulingProIntegration.cancelSlot(slotId, bookingId);
 
-      if (result.success) {
-        // Invalidate slots cache for this area
-        this._invalidateSlotsCacheForSlot(slotId);
+    if (result.success) {
+      // Invalidate slots cache for this area
+      this._invalidateSlotsCacheForSlot(slotId);
 
-        logger.info('Slot cancelled', { slotId, bookingId });
-      }
-
-      return result;
-    } catch (error) {
-      logger.error('Slot cancellation failed', {
-        slotId,
-        bookingId,
-        error,
-      });
-
-      return {
-        success: false,
-        error: error.message,
-        slotId,
-      };
+      logger.info('Slot cancelled', { slotId, bookingId });
+    } else {
+      // SchedulingPro integration returns result objects, will be refactored in future
+      throw new ServiceUnavailableError(result.error || 'Failed to cancel slot', 'SchedulingPro');
     }
+
+    return result;
   }
 
   /**
@@ -295,56 +235,42 @@ class SchedulingService {
    * @returns {Promise<Object>} Service availability
    */
   async checkServiceAvailability(zipCode) {
-    try {
-      // Check kill switch
-      if (env.DISABLE_SCHEDULING) {
-        logger.warn('Service availability check - scheduling disabled via kill switch', { zipCode });
-        return {
-          success: false,
-          error: 'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
-          disabled: true,
-          zipCode,
-        };
-      }
-      // Check with enhanced geo service for scheduling availability
-      const schedulingValidation = await geoService.validateSchedulingAvailability(zipCode);
-      if (!schedulingValidation.isServiceable || !schedulingValidation.hasScheduling) {
-        return {
-          success: true,
-          serviceable: false,
-          hasScheduling: false,
-          zipCode,
-          city: schedulingValidation.city,
-          state: schedulingValidation.state,
-          timezone: schedulingValidation.timezone,
-          serviceHours: schedulingValidation.serviceHours,
-          message: schedulingValidation.message,
-        };
-      }
+    // Check kill switch
+    if (env.DISABLE_SCHEDULING) {
+      logger.warn('Service availability check - scheduling disabled via kill switch', { zipCode });
+      throw new ServiceUnavailableError(
+        'Online scheduling is temporarily unavailable. Please call (800) 123-4567 to schedule your appointment.',
+        'Scheduling'
+      );
+    }
 
-      // Then check with SchedulingPro for detailed availability
-      const schedulingProResult = await schedulingProIntegration.checkServiceAvailability(zipCode);
-
-      // Merge geo and SchedulingPro data
+    // Check with enhanced geo service for scheduling availability
+    const schedulingValidation = await geoService.validateSchedulingAvailability(zipCode);
+    if (!schedulingValidation.isServiceable || !schedulingValidation.hasScheduling) {
       return {
-        ...schedulingProResult,
+        success: true,
+        serviceable: false,
+        hasScheduling: false,
+        zipCode,
         city: schedulingValidation.city,
         state: schedulingValidation.state,
         timezone: schedulingValidation.timezone,
         serviceHours: schedulingValidation.serviceHours,
-      };
-    } catch (error) {
-      logger.error('Service availability check failed', {
-        zipCode,
-        error,
-      });
-
-      return {
-        success: false,
-        error: error.message,
-        zipCode,
+        message: schedulingValidation.message,
       };
     }
+
+    // Then check with SchedulingPro for detailed availability
+    const schedulingProResult = await schedulingProIntegration.checkServiceAvailability(zipCode);
+
+    // Merge geo and SchedulingPro data
+    return {
+      ...schedulingProResult,
+      city: schedulingValidation.city,
+      state: schedulingValidation.state,
+      timezone: schedulingValidation.timezone,
+      serviceHours: schedulingValidation.serviceHours,
+    };
   }
 
   /**
@@ -353,10 +279,10 @@ class SchedulingService {
    * V2: Restore reservationService.getAllReservations() call
    * @returns {Promise<Array>} Current reservations
    */
-  async getCurrentReservations() {
+  getCurrentReservations() {
     // V1: No Redis reservations, return empty array
     logger.debug('getCurrentReservations called - Redis reservations disabled in V1');
-    return [];
+    return Promise.resolve([]);
 
     /* V2: Uncomment this block to restore Redis reservations
     try {
@@ -388,10 +314,10 @@ class SchedulingService {
    * V2: Restore reservationService.cleanupExpired() call
    * @returns {Promise<number>} Number of expired reservations being cleaned up
    */
-  async cleanupExpiredReservations() {
+  cleanupExpiredReservations() {
     // V1: No Redis reservations, return 0
     logger.debug('cleanupExpiredReservations called - Redis reservations disabled in V1');
-    return 0;
+    return Promise.resolve(0);
 
     /* V2: Uncomment this block to restore Redis reservation cleanup
     try {

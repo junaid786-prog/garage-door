@@ -1,5 +1,13 @@
 const env = require('../../../config/env');
 const geoService = require('../../geo/service');
+const logger = require('../../../utils/logger');
+const {
+  UnauthorizedError,
+  NotFoundError,
+  ConflictError,
+  ValidationError,
+  ExternalServiceError,
+} = require('../../../utils/errors');
 
 /**
  * SchedulingPro integration service
@@ -42,7 +50,7 @@ class SchedulingProService {
 
     // Simulate authentication scenarios
     if (this.apiKey === 'invalid_key') {
-      throw new Error('Authentication failed: Invalid API key');
+      throw new UnauthorizedError('Authentication failed: Invalid API key');
     }
 
     return {
@@ -63,7 +71,7 @@ class SchedulingProService {
   async getAvailableSlots(zipCode, startDate, endDate = null) {
     // Validate ZIP code
     if (!this.serviceableZips.includes(zipCode)) {
-      throw new Error(`Service not available in ZIP code: ${zipCode}`);
+      throw new ValidationError(`Service not available in ZIP code: ${zipCode}`);
     }
 
     // Set default end date (7 days from start)
@@ -106,18 +114,20 @@ class SchedulingProService {
     // Check if slot exists and is available
     const slot = this._findSlotById(slotId);
     if (!slot) {
-      throw new Error(`Slot not found: ${slotId}`);
+      throw new NotFoundError(`Slot not found: ${slotId}`);
     }
 
     if (!slot.available) {
-      throw new Error(`Slot is not available: ${slotId}`);
+      throw new ConflictError(`Slot is not available: ${slotId}`);
     }
 
     // Check if already reserved
     if (this.reservedSlots.has(slotId)) {
       const existing = this.reservedSlots.get(slotId);
       if (existing.expiresAt > new Date()) {
-        throw new Error(`Slot is already reserved until ${existing.expiresAt.toISOString()}`);
+        throw new ConflictError(
+          `Slot is already reserved until ${existing.expiresAt.toISOString()}`
+        );
       }
       // Expired reservation, can be overridden
       this.reservedSlots.delete(slotId);
@@ -164,16 +174,16 @@ class SchedulingProService {
     // Check reservation exists and is valid
     const reservation = this.reservedSlots.get(slotId);
     if (!reservation) {
-      throw new Error(`No reservation found for slot: ${slotId}`);
+      throw new NotFoundError(`No reservation found for slot: ${slotId}`);
     }
 
     if (reservation.expiresAt <= new Date()) {
       this.reservedSlots.delete(slotId);
-      throw new Error(`Reservation expired for slot: ${slotId}`);
+      throw new ConflictError(`Reservation expired for slot: ${slotId}`);
     }
 
     if (reservation.bookingId !== bookingId) {
-      throw new Error(`Booking ID mismatch for slot: ${slotId}`);
+      throw new ConflictError(`Booking ID mismatch for slot: ${slotId}`);
     }
 
     // Convert reservation to booking
@@ -230,7 +240,7 @@ class SchedulingProService {
     }
 
     if (!cancelledType) {
-      throw new Error(
+      throw new NotFoundError(
         `No reservation or booking found for slot: ${slotId} with booking ID: ${bookingId}`
       );
     }
@@ -445,16 +455,21 @@ class SchedulingProService {
   async _simulateErrorScenarios(zipCode) {
     // Simulate random API failures (3% chance)
     if (Math.random() < 0.03) {
-      throw new Error('SchedulingPro API temporarily unavailable');
+      throw new ExternalServiceError(
+        'SchedulingPro API temporarily unavailable',
+        'SchedulingPro',
+        'SERVICE_UNAVAILABLE',
+        true
+      );
     }
 
     // Simulate specific error cases
     if (zipCode === '00000') {
-      throw new Error('Invalid ZIP code format');
+      throw new ValidationError('Invalid ZIP code format');
     }
 
     if (zipCode === '99999') {
-      throw new Error('No technicians available in this area');
+      throw new NotFoundError('No technicians available in this area');
     }
   }
 }
