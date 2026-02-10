@@ -28,6 +28,9 @@ router.get(
 // Check service availability for a ZIP code
 router.get('/availability', validateServiceAvailabilityQuery, controller.checkServiceAvailability);
 
+// V1: Reservation endpoints disabled - no 5-minute slot holds per client requirement
+// V2: Uncomment these endpoints to restore Redis reservation feature
+/*
 // Reserve a time slot
 router.post('/reserve', validateSlotReservation, controller.reserveSlot);
 
@@ -38,14 +41,19 @@ router.delete(
   validateSlotCancellation,
   controller.cancelReservation
 );
+*/
 
 // Admin endpoints
 
+// V1: Admin reservation endpoints disabled (no Redis reservations)
+// V2: Uncomment to restore reservation monitoring
+/*
 // Get current reservations (admin)
 router.get('/admin/reservations', controller.getCurrentReservations);
 
 // Cleanup expired reservations (admin)
 router.post('/admin/cleanup', controller.cleanupExpiredReservations);
+*/
 
 // Get scheduling system health
 router.get('/health', controller.getHealth);

@@ -126,9 +126,9 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 
 ### Known Limitations
 - Redis failure = rate limiting disabled (fail open)
-- Redis failure = slot reservations degraded to DB-only
 - No automatic retry for failed DLQ jobs (manual admin action required)
 - Kill switch requires server restart (no hot reload)
+- V1: No 5-minute slot holds (direct DB booking only, per client requirement)
 
 ### Critical Dependencies
 - **PostgreSQL** - Must be up, or app won't start
@@ -142,8 +142,7 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 ```
 POST /api/bookings
   → Validation (Joi)
-  → Reserve slot (Redis, 5min TTL)
-  → Create booking (PostgreSQL transaction)
+  → Create booking (PostgreSQL transaction + unique constraint)
   → Queue jobs (Bull Queue)
   → Return booking ID (65ms avg)
 
@@ -155,11 +154,12 @@ Background:
 ```
 
 ### Data Protection Layers
-1. **Redis reservations** - Early rejection (5min TTL)
-2. **Unique constraint** - `bookings_slot_id_active_unique` (DB-level)
-3. **Database transactions** - Atomic rollback on failure
+1. **Unique constraint** - `bookings_slot_id_active_unique` (DB-level, atomic enforcement)
+2. **Database transactions** - Atomic rollback on failure
 
-**Result:** Double-booking mathematically impossible (verified via concurrency tests).
+**V1 Note:** Redis 5-minute slot reservations removed per client requirement (operations team doesn't hold slots). Will be restored in V2.
+
+**Result:** Double-booking mathematically impossible (verified via concurrency tests: 1 success, 9 conflicts out of 10 concurrent requests).
 
 ## Key Commands
 
@@ -205,7 +205,7 @@ docker compose down         # Stop all services
 **Status:** 94% complete (72/77 tasks)
 
 ### ✅ Complete
-- Data integrity (transactions, unique constraints, Redis reservations)
+- Data integrity (transactions, unique constraints)
 - Security (PII sanitization, structured logging, rate limiting)
 - Reliability (circuit breakers, timeouts, error recovery)
 - Performance (65ms booking, 266ms avg response, graceful degradation)

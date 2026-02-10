@@ -4,11 +4,12 @@ This directory contains tests to verify that the booking system prevents double-
 
 ## Test Coverage
 
-The concurrency test verifies all three protection layers:
+**V1:** The concurrency test verifies the two-layer protection system:
 
-1. **Redis Slot Reservations** - Early rejection of duplicate requests
-2. **Database Transactions** - Atomic operations prevent partial states
-3. **Unique Constraint on slot_id** - Database-level enforcement
+1. **Database Transactions** - Atomic operations prevent partial states
+2. **Unique Constraint on slot_id** - Database-level enforcement (primary protection)
+
+**V2 Note:** Redis 5-minute slot reservations will be added as a third layer for early rejection.
 
 ## Running the Tests
 
@@ -66,29 +67,34 @@ Total Requests:        10
 ✗ Errors (other):      1+   ← Something broke (500, timeout, etc.)
 ```
 
-## What Each Test Validates
+## What Each Test Validates (V1)
 
-### Test 1: Redis Reservation Layer
-- First request reserves slot in Redis (5-minute TTL)
-- Subsequent requests fail IMMEDIATELY at Redis check
-- Faster rejection, less database load
-
-### Test 2: Database Transaction Layer
-- If Redis is bypassed/fails, transaction ensures atomicity
+### Test 1: Database Transaction Layer
+- Transactions ensure atomicity
 - Either entire booking succeeds OR entire booking rolls back
 - No partial bookings in database
 
-### Test 3: Unique Constraint Layer
-- Final safety net at database level
+### Test 2: Unique Constraint Layer (Primary Protection)
+- Database-level enforcement (last resort)
 - Unique index on `bookings(slot_id)` WHERE status NOT IN ('cancelled')
 - Database rejects duplicate `slot_id` with constraint violation
 - Application catches violation and returns 409 Conflict
+- **This is the primary protection mechanism in V1**
+
+### V2 Addition: Redis Reservation Layer
+- Will add early rejection at Redis level (5-minute TTL)
+- Faster conflict detection, less database load
+- Requests fail IMMEDIATELY at Redis check before database
 
 ## Performance Expectations
 
-**Response Times:**
-- Redis rejection: < 50ms (very fast)
-- Database rejection: 100-300ms (normal)
+**Response Times (V1 - Database Protection):**
+- Database rejection: 180-300ms (normal, still under 500ms target)
+- Successful booking: 50-100ms (async background jobs)
+
+**Response Times (V2 - With Redis):**
+- Redis rejection: < 50ms (very fast, early rejection)
+- Database rejection: 100-300ms (fallback if Redis degraded)
 - Successful booking: 50-100ms (async background jobs)
 
 **Concurrent Load:**
@@ -105,15 +111,15 @@ Total Requests:        10
 **Solution:** Start the server with `npm run dev`
 
 ### Redis Not Running
-Test will still pass if Redis is down (graceful degradation), but you'll see:
-- Slower conflict detection
-- All rejections happen at database level instead of Redis
+**V1:** Redis is not used for slot reservations. The system uses database protection only.
+
+**V2:** When Redis reservations are restored, the test will still pass if Redis is down (graceful degradation), but conflict detection will be slower.
 
 ### Multiple Bookings Succeed (Test Fails)
 This is a CRITICAL issue. Check:
-1. Is unique constraint applied? `\d bookings` in psql
-2. Are transactions working? Check `src/modules/bookings/service.js`
-3. Is Redis reservation logic correct? Check `src/services/reservationService.js`
+1. Is unique constraint applied? Run `\d bookings` in psql
+2. Are transactions working? Check [src/modules/bookings/service.js](../../src/modules/bookings/service.js)
+3. V2 only: Is Redis reservation logic correct? Check [src/services/reservationService.js](../../src/services/reservationService.js)
 
 ## Files Tested
 

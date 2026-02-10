@@ -1,11 +1,11 @@
 /**
  * Concurrency Test: Double-Booking Prevention
  *
- * This test verifies that the booking system prevents double-booking under
- * concurrent load by testing all three protection layers:
- * 1. Redis slot reservations (early rejection)
- * 2. Database transactions (atomic operations)
- * 3. Unique constraint on slot_id (database-level protection)
+ * V1: This test verifies the two-layer protection system:
+ * 1. Database transactions (atomic operations)
+ * 2. Unique constraint on slot_id (database-level protection)
+ *
+ * V2: Will add Redis slot reservations as third layer for early rejection
  *
  * Expected Result: Only 1 booking succeeds, all others get 409 Conflict
  */

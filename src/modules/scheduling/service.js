@@ -157,20 +157,9 @@ class SchedulingService {
           slotId,
         };
       }
-      // Check if slot is already reserved in Redis
-      const reservationCheck = await reservationService.isReserved(slotId);
 
-      // If Redis is degraded, continue with SchedulingPro check only
-      if (reservationCheck.degraded) {
-        logger.warn('Redis degraded, using SchedulingPro only for reservation');
-      } else if (reservationCheck.isReserved) {
-        return {
-          success: false,
-          error: `Slot is already reserved until ${reservationCheck.reservation.expiresAt}`,
-          slotId,
-          reservedBy: reservationCheck.reservation.bookingId,
-        };
-      }
+      // V1: Redis reservations removed per client requirement (no 5-minute holds)
+      // V2: Restore Redis reservation checks here for multi-user slot holding
 
       // Reserve slot with SchedulingPro
       const result = await schedulingProIntegration.reserveSlot(
@@ -188,21 +177,8 @@ class SchedulingService {
         };
       }
 
-      // Store reservation in Redis with TTL (automatic cleanup)
-      const redisResult = await reservationService.reserveSlot(
-        slotId,
-        bookingId,
-        {
-          customerInfo,
-          slot: result.slot,
-        },
-        this.reservationTimeoutSeconds
-      );
-
-      // If Redis reservation failed but SchedulingPro succeeded, log warning but continue
-      if (!redisResult.success && !redisResult.degraded) {
-        logger.warn('Redis reservation failed but SchedulingPro succeeded', { slotId });
-      }
+      // V1: Redis reservation storage removed
+      // V2: Restore reservationService.reserveSlot() here
 
       logger.info('Slot reserved successfully', {
         slotId,
@@ -244,37 +220,15 @@ class SchedulingService {
    */
   async confirmReservedSlot(slotId, bookingId) {
     try {
-      // Verify reservation in Redis
-      const verifyResult = await reservationService.verifyReservation(slotId, bookingId);
-
-      // If Redis is degraded, skip verification and proceed with SchedulingPro
-      if (verifyResult.degraded) {
-        logger.warn('Redis degraded, proceeding with SchedulingPro confirmation only');
-      } else if (!verifyResult.valid) {
-        return {
-          success: false,
-          error: verifyResult.error || `Invalid reservation for slot: ${slotId}`,
-          slotId,
-        };
-      } else {
-        // Check if reservation expired
-        const expiresAt = new Date(verifyResult.reservation.expiresAt);
-        if (expiresAt <= new Date()) {
-          await reservationService.releaseSlot(slotId);
-          return {
-            success: false,
-            error: `Reservation expired for slot: ${slotId}`,
-            slotId,
-          };
-        }
-      }
+      // V1: Redis verification removed - slots confirmed directly with SchedulingPro
+      // V2: Restore reservationService.verifyReservation() here
 
       // Confirm with SchedulingPro
       const result = await schedulingProIntegration.confirmSlot(slotId, bookingId);
 
       if (result.success) {
-        // Remove from Redis reservations (now it's confirmed)
-        await reservationService.releaseSlot(slotId);
+        // V1: No Redis cleanup needed (no reservations)
+        // V2: Restore reservationService.releaseSlot() here
 
         // Invalidate slots cache for this area
         this._invalidateSlotsCacheForSlot(slotId);
@@ -306,11 +260,8 @@ class SchedulingService {
    */
   async cancelSlot(slotId, bookingId) {
     try {
-      // Remove from Redis reservations
-      const verifyResult = await reservationService.verifyReservation(slotId, bookingId);
-      if (verifyResult.valid) {
-        await reservationService.releaseSlot(slotId);
-      }
+      // V1: Redis reservation removal - cancel directly with SchedulingPro
+      // V2: Restore reservationService.verifyReservation() and releaseSlot() here
 
       // Cancel with SchedulingPro
       const result = await schedulingProIntegration.cancelSlot(slotId, bookingId);
@@ -398,9 +349,16 @@ class SchedulingService {
 
   /**
    * Get current reservations (for admin/debugging)
+   * V1: Disabled - no Redis reservations
+   * V2: Restore reservationService.getAllReservations() call
    * @returns {Promise<Array>} Current reservations
    */
   async getCurrentReservations() {
+    // V1: No Redis reservations, return empty array
+    logger.debug('getCurrentReservations called - Redis reservations disabled in V1');
+    return [];
+
+    /* V2: Uncomment this block to restore Redis reservations
     try {
       const result = await reservationService.getAllReservations();
       if (!result.success) {
@@ -421,14 +379,21 @@ class SchedulingService {
       logger.error('Failed to get reservations', { error });
       return [];
     }
+    */
   }
 
   /**
    * Clear expired reservations (cleanup job)
-   * Note: Redis TTL handles automatic cleanup, this is for monitoring
+   * V1: Disabled - no Redis reservations to clean
+   * V2: Restore reservationService.cleanupExpired() call
    * @returns {Promise<number>} Number of expired reservations being cleaned up
    */
   async cleanupExpiredReservations() {
+    // V1: No Redis reservations, return 0
+    logger.debug('cleanupExpiredReservations called - Redis reservations disabled in V1');
+    return 0;
+
+    /* V2: Uncomment this block to restore Redis reservation cleanup
     try {
       const result = await reservationService.cleanupExpired();
       if (!result.success) {
@@ -447,6 +412,7 @@ class SchedulingService {
       logger.error('Cleanup failed', { error });
       return 0;
     }
+    */
   }
 
   // Private helper methods

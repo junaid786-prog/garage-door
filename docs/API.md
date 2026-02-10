@@ -705,7 +705,11 @@ X-API-Key: your-api-key-here
 
 ### 3.2 Reserve Slot
 
-**Endpoint:** `POST /api/scheduling/reserve`
+**⚠️ V2 FEATURE - NOT AVAILABLE IN V1**
+
+This endpoint is disabled in V1 per client requirement (operations team doesn't hold slots). Bookings are created directly via `POST /api/bookings` without prior reservation. This endpoint will be restored in V2 to enable 5-minute slot holds.
+
+**Endpoint:** `POST /api/scheduling/reserve` _(disabled in V1)_
 
 **Rate Limit:** 100 requests / 15 minutes per IP
 
@@ -800,7 +804,11 @@ X-API-Key: your-api-key-here
 
 ### 3.4 Cancel Slot Reservation
 
-**Endpoint:** `DELETE /api/scheduling/reserve/:slotId`
+**⚠️ V2 FEATURE - NOT AVAILABLE IN V1**
+
+This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:id/status` with status "cancelled". This reservation endpoint will be restored in V2.
+
+**Endpoint:** `DELETE /api/scheduling/reserve/:slotId` _(disabled in V1)_
 
 **Rate Limit:** 100 requests / 15 minutes per IP
 
