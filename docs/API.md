@@ -12,6 +12,105 @@
 
 ---
 
+## Standardized Error Handling
+
+**All API endpoints follow a consistent error response format. Errors are handled by a global error handler that standardizes responses across the entire API.**
+
+### Error Response Format
+
+**Standard Error Response Structure:**
+```json
+{
+  "success": false,
+  "message": "User-friendly error message",
+  "error": {
+    "code": "ERROR_CODE"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+**Validation Error Response (includes details array):**
+```json
+{
+  "success": false,
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "fieldName",
+        "message": "Field-specific error message"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+### Standard Error Codes
+
+| HTTP Status | Error Code | Description |
+|------------|-----------|-------------|
+| `400` | `VALIDATION_ERROR` | Input validation failed |
+| `400` | `BAD_REQUEST` | Invalid request format or parameters |
+| `401` | `UNAUTHORIZED` | Missing or invalid API key |
+| `404` | `NOT_FOUND` | Resource not found |
+| `409` | `CONFLICT` | Resource conflict (e.g., slot already booked) |
+| `429` | `RATE_LIMIT_EXCEEDED` | Too many requests |
+| `500` | `INTERNAL_ERROR` | Internal server error |
+| `502` | `EXTERNAL_SERVICE_ERROR` | External API integration failed |
+| `503` | `SERVICE_UNAVAILABLE` | Service temporarily unavailable |
+
+### Error Handling Flow
+
+1. **Service Layer** throws custom error classes (`ValidationError`, `NotFoundError`, `ConflictError`, etc.)
+2. **Controllers** pass errors to global error handler via `next(error)`
+3. **Global Error Handler** maps error types to HTTP status codes and standardizes response format
+4. **Client** receives consistent error structure with proper status code
+
+### Validation Error Details
+
+**Validation errors always include a `details` array inside the `error` object:**
+
+```json
+{
+  "success": false,
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "service.type",
+        "message": "\"service.type\" must be one of [repair, replacement]"
+      },
+      {
+        "field": "contact.phoneE164",
+        "message": "\"contact.phoneE164\" is required"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+**Note:** Field names use dot notation for nested fields (e.g., `service.type`, `contact.phoneE164`).
+
+### Development vs Production
+
+- **Production:** Error messages are sanitized and minimal details exposed
+- **Development:** Additional debug information may be included (e.g., stack traces)
+- **Both:** Always return same standardized structure
+
+### Security Considerations
+
+- PII (Personally Identifiable Information) is never exposed in error messages
+- Stack traces are sanitized to remove file paths and sensitive data
+- Error messages are designed to be helpful without revealing system internals
+- All errors are logged server-side with full context (not exposed to client)
+
+---
+
 ## Authentication
 
 ### Header Required
@@ -148,13 +247,17 @@ X-API-Key: your-api-key-here
 ```json
 {
   "success": false,
-  "error": "Validation error",
-  "details": [
-    {
-      "field": "service.type",
-      "message": "\"service.type\" must be one of [repair, replacement]"
-    }
-  ]
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "service.type",
+        "message": "\"service.type\" must be one of [repair, replacement]"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -248,7 +351,10 @@ X-API-Key: your-api-key-here
 {
   "success": false,
   "message": "Booking not found",
-  "timestamp": "2026-02-09T13:34:14.452Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -349,7 +455,10 @@ X-API-Key: your-api-key-here
 {
   "success": false,
   "message": "Booking not found",
-  "timestamp": "2026-02-09T13:34:14.452Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -400,7 +509,10 @@ X-API-Key: your-api-key-here
 {
   "success": false,
   "message": "Booking not found",
-  "timestamp": "2026-02-09T13:34:14.452Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -539,11 +651,17 @@ X-API-Key: your-api-key-here
 ```json
 {
   "success": false,
-  "error": "Validation Error",
   "message": "ZIP code must be in format 12345 or 12345-1234",
-  "details": [
-    /* Validation errors */
-  ]
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "zipCode",
+        "message": "ZIP code must be in format 12345 or 12345-1234"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -734,8 +852,11 @@ X-API-Key: your-api-key-here
 ```json
 {
   "success": false,
-  "error": "Validation Error",
-  "message": "Date cannot be in the past"
+  "message": "Date cannot be in the past",
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -744,19 +865,19 @@ X-API-Key: your-api-key-here
 ```json
 {
   "success": false,
-  "error": "Validation Error",
   "message": "Invalid input data",
-  "details": [
-    {
-      "field": "days",
-      "message": "Days must be at least 1",
-      "value": 0
-    }
-  ]
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "days",
+        "message": "Days cannot exceed 30"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
-
-**Note:** Scheduling and geo validation errors include `value` field. Booking and event validation errors only include `field` and `message`.
 
 ---
 
@@ -830,7 +951,10 @@ This endpoint is disabled in V1 per client requirement (operations team doesn't 
 {
   "success": false,
   "message": "Slot not available",
-  "timestamp": "2026-02-09T13:34:00.309Z"
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -904,7 +1028,10 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 {
   "success": false,
   "message": "Reservation not found",
-  "timestamp": "2026-02-09T13:34:00.309Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -1322,8 +1449,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```json
 {
   "success": false,
-  "error": "Error log not found",
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "message": "Error log not found",
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -1384,8 +1514,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```json
 {
   "success": false,
-  "error": "This error is not retryable",
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "message": "This error is not retryable",
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -1394,8 +1527,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```json
 {
   "success": false,
-  "error": "This error is already resolved",
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "message": "This error is already resolved",
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -1820,42 +1956,29 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 
 ## Common Error Responses
 
-### 400 Bad Request
+**See the [Standardized Error Handling](#standardized-error-handling) section at the top of this document for complete error handling documentation.**
 
-**Booking/Event Validation Errors:**
+### Quick Reference
 
+**Validation Error (400):**
 ```json
 {
   "success": false,
-  "error": "Validation error",
-  "details": [
-    {
-      "field": "fieldName",
-      "message": "Error description"
-    }
-  ]
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "fieldName",
+        "message": "Error description"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-**Scheduling/Geo Validation Errors:**
-
-```json
-{
-  "success": false,
-  "error": "Validation Error",
-  "message": "Invalid input data",
-  "details": [
-    {
-      "field": "fieldName",
-      "message": "Error description",
-      "value": "invalidValue"
-    }
-  ]
-}
-```
-
-### 401 Unauthorized
-
+**Unauthorized (401):**
 ```json
 {
   "success": false,
@@ -1863,12 +1986,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "UNAUTHORIZED"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 404 Not Found
-
+**Not Found (404):**
 ```json
 {
   "success": false,
@@ -1876,12 +1998,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "NOT_FOUND"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 409 Conflict
-
+**Conflict (409):**
 ```json
 {
   "success": false,
@@ -1889,12 +2010,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "CONFLICT"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 429 Too Many Requests
-
+**Rate Limit Exceeded (429):**
 ```json
 {
   "success": false,
@@ -1902,12 +2022,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "RATE_LIMIT_EXCEEDED"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 500 Internal Server Error
-
+**Internal Server Error (500):**
 ```json
 {
   "success": false,
@@ -1915,12 +2034,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "INTERNAL_ERROR"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 503 Service Unavailable
-
+**Service Unavailable (503):**
 ```json
 {
   "success": false,
@@ -1928,7 +2046,19 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "SERVICE_UNAVAILABLE"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+**External Service Error (502):**
+```json
+{
+  "success": false,
+  "message": "External service integration failed",
+  "error": {
+    "code": "EXTERNAL_SERVICE_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
