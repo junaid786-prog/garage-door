@@ -101,13 +101,13 @@ const debug = (message, meta) => {
  * Log HTTP request/response
  * Automatically sanitizes request and response data
  */
-const http = (message, { req, res, ...meta }) => {
+const http = (message, { req, res, ...meta } = {}) => {
   const sanitizedData = {
     ...meta,
     method: req?.method,
     url: req?.url,
     statusCode: res?.statusCode,
-    responseTime: meta.responseTime,
+    responseTime: meta?.responseTime,
     requestId: req?.id,
     // NEVER log req.body, req.params, req.query - they contain PII
   };
