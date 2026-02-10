@@ -1,7 +1,14 @@
 const env = require('../../../config/env');
 const { Booking } = require('../../../database/models');
 const { createCircuitBreaker } = require('../../../utils/circuitBreaker');
-const { ServiceUnavailableError, ExternalServiceError } = require('../../../utils/errors');
+const {
+  ServiceUnavailableError,
+  ExternalServiceError,
+  UnauthorizedError,
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+} = require('../../../utils/errors');
 const logger = require('../../../utils/logger');
 
 /**
@@ -126,11 +133,11 @@ class ServiceTitanService {
 
     // Simulate authentication scenarios
     if (this.apiKey === 'invalid_key') {
-      throw new Error('Authentication failed: Invalid API key');
+      throw new UnauthorizedError('Authentication failed: Invalid API key');
     }
 
     if (this.tenantId === 'invalid_tenant') {
-      throw new Error('Authentication failed: Invalid tenant ID');
+      throw new UnauthorizedError('Authentication failed: Invalid tenant ID');
     }
 
     return {
@@ -278,7 +285,7 @@ class ServiceTitanService {
 
     const job = this.simulatedJobs.get(parseInt(jobId));
     if (!job) {
-      throw new Error(`Job with ID ${jobId} not found`);
+      throw new NotFoundError(`Job with ID ${jobId} not found`);
     }
 
     return job;
@@ -315,12 +322,12 @@ class ServiceTitanService {
 
     const job = this.simulatedJobs.get(parseInt(jobId));
     if (!job) {
-      throw new Error(`Job with ID ${jobId} not found`);
+      throw new NotFoundError(`Job with ID ${jobId} not found`);
     }
 
     const validStatuses = ['scheduled', 'dispatched', 'in_progress', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status: ${status}`);
+      throw new ValidationError(`Invalid status: ${status}`);
     }
 
     job.status = status;
@@ -378,11 +385,11 @@ class ServiceTitanService {
 
     const job = this.simulatedJobs.get(parseInt(jobId));
     if (!job) {
-      throw new Error(`Job with ID ${jobId} not found`);
+      throw new NotFoundError(`Job with ID ${jobId} not found`);
     }
 
     if (job.status === 'completed') {
-      throw new Error('Cannot cancel completed job');
+      throw new ConflictError('Cannot cancel completed job');
     }
 
     job.status = 'cancelled';
@@ -434,23 +441,23 @@ class ServiceTitanService {
 
     for (const field of required) {
       if (!bookingData[field]) {
-        throw new Error(`Missing required field: ${field}`);
+        throw new ValidationError(`Missing required field: ${field}`);
       }
     }
 
     // Validate phone format
     if (!/^\d{10,15}$/.test(bookingData.phone.replace(/[^\d]/g, ''))) {
-      throw new Error('Invalid phone number format');
+      throw new ValidationError('Invalid phone number format');
     }
 
     // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingData.email)) {
-      throw new Error('Invalid email format');
+      throw new ValidationError('Invalid email format');
     }
 
     // Validate ZIP code
     if (!/^\d{5}(-\d{4})?$/.test(bookingData.zip)) {
-      throw new Error('Invalid ZIP code format');
+      throw new ValidationError('Invalid ZIP code format');
     }
   }
 
@@ -460,20 +467,25 @@ class ServiceTitanService {
   _simulateErrors(bookingData) {
     // Simulate random API failures (5% chance)
     if (Math.random() < 0.05) {
-      throw new Error('ServiceTitan API temporarily unavailable');
+      throw new ExternalServiceError(
+        'ServiceTitan API temporarily unavailable',
+        'ServiceTitan',
+        'SERVICE_UNAVAILABLE',
+        true
+      );
     }
 
     // Simulate specific error cases
     if (bookingData.email === 'error@test.com') {
-      throw new Error('Customer already exists with conflicting information');
+      throw new ConflictError('Customer already exists with conflicting information');
     }
 
     if (bookingData.zip === '00000') {
-      throw new Error('Service area not supported');
+      throw new ValidationError('Service area not supported');
     }
 
     if (bookingData.phone === '0000000000') {
-      throw new Error('Invalid phone number - customer verification failed');
+      throw new ValidationError('Invalid phone number - customer verification failed');
     }
   }
 
