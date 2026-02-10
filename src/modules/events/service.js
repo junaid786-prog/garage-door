@@ -1,4 +1,5 @@
 const repository = require('./repository');
+const { ValidationError } = require('../../utils/errors');
 
 /**
  * Event tracking service
@@ -14,7 +15,7 @@ class EventService {
   async track(eventName, eventData = {}) {
     // Validate input
     if (!eventName || typeof eventName !== 'string') {
-      throw new Error('Event name is required and must be a string');
+      throw new ValidationError('Event name is required and must be a string');
     }
 
     // Extract known fields and put rest in properties
@@ -88,14 +89,14 @@ class EventService {
     if (filters.startDate) {
       processedFilters.startDate = new Date(filters.startDate);
       if (isNaN(processedFilters.startDate.getTime())) {
-        throw new Error('Invalid startDate format');
+        throw new ValidationError('Invalid startDate format');
       }
     }
 
     if (filters.endDate) {
       processedFilters.endDate = new Date(filters.endDate);
       if (isNaN(processedFilters.endDate.getTime())) {
-        throw new Error('Invalid endDate format');
+        throw new ValidationError('Invalid endDate format');
       }
     }
 
@@ -144,7 +145,7 @@ class EventService {
    */
   async getSessionEvents(sessionId, options = {}) {
     if (!sessionId) {
-      throw new Error('Session ID is required');
+      throw new ValidationError('Session ID is required');
     }
 
     return await repository.findBySessionId(sessionId, options);
@@ -158,7 +159,7 @@ class EventService {
    */
   async getFunnelAnalysis(eventNames, filters = {}) {
     if (!Array.isArray(eventNames) || eventNames.length === 0) {
-      throw new Error('Event names array is required');
+      throw new ValidationError('Event names array is required');
     }
 
     const processedFilters = {};

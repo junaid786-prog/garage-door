@@ -86,17 +86,17 @@ const validate = (schema, property = 'body') => {
     });
 
     if (error) {
-      const errorDetails = error.details.map((detail) => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-        value: detail.context.value,
-      }));
-
       return res.status(400).json({
         success: false,
-        error: 'Validation Error',
         message: 'Invalid input data',
-        details: errorDetails,
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: error.details.map((detail) => ({
+            field: detail.path.join('.'),
+            message: detail.message,
+          })),
+        },
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -123,8 +123,15 @@ const validateSlotIdParam = (req, res, next) => {
   if (!slotId) {
     return res.status(400).json({
       success: false,
-      error: 'Validation Error',
       message: 'Slot ID is required',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: [{
+          field: 'slotId',
+          message: 'Slot ID is required',
+        }],
+      },
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -133,8 +140,15 @@ const validateSlotIdParam = (req, res, next) => {
   if (!slotIdPattern.test(slotId)) {
     return res.status(400).json({
       success: false,
-      error: 'Validation Error',
       message: 'Slot ID must be in format slot_YYYY-MM-DD_HHMM',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: [{
+          field: 'slotId',
+          message: 'Slot ID must be in format slot_YYYY-MM-DD_HHMM',
+        }],
+      },
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -155,8 +169,15 @@ const validateDateNotInPast = (req, res, next) => {
     if (requestedDate < today) {
       return res.status(400).json({
         success: false,
-        error: 'Validation Error',
         message: 'Date cannot be in the past',
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: [{
+            field: 'date',
+            message: 'Date cannot be in the past',
+          }],
+        },
+        timestamp: new Date().toISOString(),
       });
     }
   }

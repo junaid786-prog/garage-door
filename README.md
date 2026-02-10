@@ -45,12 +45,14 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 ## Sync vs Async Operations
 
 ### Synchronous (blocking user response)
+
 - **Booking creation** - Creates DB record only (~65ms)
 - **Slot validation** - Checks availability
 - **ZIP validation** - Service area lookup
 - **Event tracking** - Logs to database
 
 ### Asynchronous (background jobs)
+
 - **ServiceTitan integration** - Job creation in external system
 - **Slot confirmation** - Final slot locking in SchedulingPro
 - **Email notifications** - Confirmation emails via Klaviyo
@@ -62,9 +64,11 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 ## PII Handling
 
 ### Fields Containing PII
+
 - `customer_name`, `phone`, `phone_e164`, `email`, `street_address`, `city`, `state`, `zip`
 
 ### Protection Rules
+
 1. **Never log PII** - All logs auto-sanitize via Winston
 2. **Sanitization patterns:**
    - Phone: `+12125551234` → `+1212***1234`
@@ -74,11 +78,13 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 4. **Error responses** - Stack traces sanitized, no PII exposed
 
 ### PII-Safe Operations
+
 - Use `logger.info/error/warn()` - auto-sanitizes
 - Error logging via `errorLogService` - sanitizes before storing
 - Health checks and monitoring - no PII exposed
 
 ### Never Do This
+
 - `console.log(booking)` - Blocked by ESLint
 - Log request bodies in production
 - Return raw database errors to client
@@ -86,6 +92,7 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 ## Safe vs Risky Modifications
 
 ### ✅ Safe to Modify
+
 - **Validation rules** - `src/modules/*/validator.js`
 - **API responses** - Add fields, don't remove existing
 - **Background job logic** - `src/workers/*.js`
@@ -95,6 +102,7 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 - **Rate limits** - Tune thresholds in middleware
 
 ### ⚠️ Modify with Caution
+
 - **Database models** - Requires migration + testing
 - **Error classes** - Frontend depends on error codes
 - **Queue configuration** - Affects job processing
@@ -102,6 +110,7 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 - **Transaction boundaries** - Critical for data integrity
 
 ### 🚨 Risky - Test Thoroughly
+
 - **Booking creation flow** - `src/modules/bookings/service.js:17-137`
 - **Slot reservation logic** - `src/services/reservationService.js`
 - **Database transactions** - Any code using `sequelize.transaction()`
@@ -110,6 +119,7 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 - **Authentication middleware** - Breaks API access if wrong
 
 ### Never Modify
+
 - **Slot uniqueness constraint** - Prevents double-bookings (DB-level protection)
 - **Transaction wrappers** - Ensures atomic operations
 - **PII sanitization in logger** - Always-on protection
@@ -117,20 +127,21 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 ## Known Risks & TODOs
 
 ### Current Risks
+
 1. **No automated tests** - Only manual testing and concurrency scripts
 2. **ServiceTitan demo mode** - Real API not fully integrated
 3. **No deployment automation** - Manual deployment process
 4. **Missing monitoring** - No production alerting configured
 
-
-
 ### Known Limitations
+
 - Redis failure = rate limiting disabled (fail open)
 - No automatic retry for failed DLQ jobs (manual admin action required)
 - Kill switch requires server restart (no hot reload)
 - V1: No 5-minute slot holds (direct DB booking only, per client requirement)
 
 ### Critical Dependencies
+
 - **PostgreSQL** - Must be up, or app won't start
 - **Redis** - Optional but recommended (graceful degradation)
 - **ServiceTitan API** - Jobs go to DLQ if down (circuit breaker protects)
@@ -139,6 +150,7 @@ QUEUE_WORKERS_ENABLED=true  # Toggle background job processing
 ## Architecture
 
 ### Request Flow
+
 ```
 POST /api/bookings
   → Validation (Joi)
@@ -154,6 +166,7 @@ Background:
 ```
 
 ### Data Protection Layers
+
 1. **Unique constraint** - `bookings_slot_id_active_unique` (DB-level, atomic enforcement)
 2. **Database transactions** - Atomic rollback on failure
 
@@ -187,6 +200,7 @@ docker compose down         # Stop all services
 ## API Endpoints
 
 ### Public
+
 - `POST /api/bookings` - Create booking (10 req/15min)
 - `GET /api/bookings/:id` - Get booking
 - `GET /api/scheduling/slots` - Available slots
@@ -194,6 +208,7 @@ docker compose down         # Stop all services
 - `GET /api/geo/zip/:zipCode` - Validate service area
 
 ### Admin (requires `X-API-Key` header)
+
 - `GET /admin/errors/unresolved` - Failed operations
 - `POST /admin/errors/:id/retry` - Retry failed operation
 - `GET /admin/queue/dlq` - Dead letter queue
@@ -205,6 +220,7 @@ docker compose down         # Stop all services
 **Status:** 94% complete (72/77 tasks)
 
 ### ✅ Complete
+
 - Data integrity (transactions, unique constraints)
 - Security (PII sanitization, structured logging, rate limiting)
 - Reliability (circuit breakers, timeouts, error recovery)
@@ -212,6 +228,7 @@ docker compose down         # Stop all services
 - Background jobs (async processing, DLQ, monitoring)
 
 ### 📝 Pending
+
 - Documentation (API contracts, runbooks, deployment guide)
 - Testing (integration tests, migration testing)
 - Monitoring (production alerts, metrics dashboards)
@@ -226,17 +243,20 @@ docker compose down         # Stop all services
 ## Troubleshooting
 
 **Database connection failed:**
+
 ```bash
 docker compose ps  # Check PostgreSQL is running
 docker compose logs postgres  # View logs
 ```
 
 **Redis connection failed:**
+
 - Non-critical - app continues with degraded features
 - Rate limiting disabled (fail open)
 - Slot reservations fall back to DB-only
 
 **Migration failed:**
+
 ```bash
 npm run db:migrate:undo  # Rollback
 # Fix migration file
@@ -244,6 +264,7 @@ npm run db:migrate  # Re-run
 ```
 
 **Queue not processing jobs:**
+
 - Check `QUEUE_WORKERS_ENABLED=true` in `.env`
 - Check Redis connection
 - View DLQ: `GET /admin/queue/dlq`

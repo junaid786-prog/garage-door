@@ -1,7 +1,14 @@
 const env = require('../../../config/env');
 const { Booking } = require('../../../database/models');
 const { createCircuitBreaker } = require('../../../utils/circuitBreaker');
-const { ServiceUnavailableError, ExternalServiceError } = require('../../../utils/errors');
+const {
+  ServiceUnavailableError,
+  ExternalServiceError,
+  UnauthorizedError,
+  ValidationError,
+  NotFoundError,
+  ConflictError,
+} = require('../../../utils/errors');
 const logger = require('../../../utils/logger');
 
 /**
@@ -41,11 +48,11 @@ class ServiceTitanService {
         errorThresholdPercentage: 50,
         resetTimeout: 5000,
       },
-      async (bookingData) => {
+      (bookingData) => {
         // Fallback: Store job for later retry
         logger.warn('ServiceTitan circuit breaker open, using fallback', {
           operation: 'createJob',
-          bookingId: bookingData.bookingId
+          bookingId: bookingData.bookingId,
         });
         throw new ServiceUnavailableError(
           'ServiceTitan is temporarily unavailable. Job will be created in background.',
@@ -55,37 +62,28 @@ class ServiceTitanService {
     );
 
     // Circuit breaker for job updates
-    this.updateJobBreaker = createCircuitBreaker(
-      this._updateJobStatusInternal.bind(this),
-      {
-        name: 'ServiceTitan.updateJobStatus',
-        timeout: 8000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.updateJobBreaker = createCircuitBreaker(this._updateJobStatusInternal.bind(this), {
+      name: 'ServiceTitan.updateJobStatus',
+      timeout: 8000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
 
     // Circuit breaker for getting jobs
-    this.getJobBreaker = createCircuitBreaker(
-      this._getJobInternal.bind(this),
-      {
-        name: 'ServiceTitan.getJob',
-        timeout: 5000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.getJobBreaker = createCircuitBreaker(this._getJobInternal.bind(this), {
+      name: 'ServiceTitan.getJob',
+      timeout: 5000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
 
     // Circuit breaker for cancellations
-    this.cancelJobBreaker = createCircuitBreaker(
-      this._cancelJobInternal.bind(this),
-      {
-        name: 'ServiceTitan.cancelJob',
-        timeout: 8000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.cancelJobBreaker = createCircuitBreaker(this._cancelJobInternal.bind(this), {
+      name: 'ServiceTitan.cancelJob',
+      timeout: 8000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
   }
 
   /**
@@ -97,13 +95,21 @@ class ServiceTitanService {
 
     try {
       const maxJob = await Booking.findOne({
-        attributes: [[Booking.sequelize.fn('MAX', Booking.sequelize.cast(Booking.sequelize.col('service_titan_job_id'), 'INTEGER')), 'maxId']],
+        attributes: [
+          [
+            Booking.sequelize.fn(
+              'MAX',
+              Booking.sequelize.cast(Booking.sequelize.col('service_titan_job_id'), 'INTEGER')
+            ),
+            'maxId',
+          ],
+        ],
         where: {
           service_titan_job_id: {
-            [Booking.sequelize.Op.ne]: null
-          }
+            [Booking.sequelize.Op.ne]: null,
+          },
         },
-        raw: true
+        raw: true,
       });
 
       if (maxJob && maxJob.maxId) {
@@ -111,7 +117,7 @@ class ServiceTitanService {
       }
 
       this.initialized = true;
-    } catch (error) {
+    } catch {
       // If initialization fails, continue with default counter
       this.initialized = true;
     }
@@ -127,11 +133,11 @@ class ServiceTitanService {
 
     // Simulate authentication scenarios
     if (this.apiKey === 'invalid_key') {
-      throw new Error('Authentication failed: Invalid API key');
+      throw new UnauthorizedError('Authentication failed: Invalid API key');
     }
 
     if (this.tenantId === 'invalid_tenant') {
-      throw new Error('Authentication failed: Invalid tenant ID');
+      throw new UnauthorizedError('Authentication failed: Invalid tenant ID');
     }
 
     return {
@@ -180,7 +186,7 @@ class ServiceTitanService {
     await this._simulateDelay(800);
 
     // Simulate different error scenarios
-    await this._simulateErrors(bookingData);
+    this._simulateErrors(bookingData);
 
     // Generate unique job ID using timestamp + random to avoid collisions
     const jobId = Date.now() + Math.floor(Math.random() * 1000);
@@ -279,7 +285,7 @@ class ServiceTitanService {
 
     const job = this.simulatedJobs.get(parseInt(jobId));
     if (!job) {
-      throw new Error(`Job with ID ${jobId} not found`);
+      throw new NotFoundError(`Job with ID ${jobId} not found`);
     }
 
     return job;
@@ -316,12 +322,12 @@ class ServiceTitanService {
 
     const job = this.simulatedJobs.get(parseInt(jobId));
     if (!job) {
-      throw new Error(`Job with ID ${jobId} not found`);
+      throw new NotFoundError(`Job with ID ${jobId} not found`);
     }
 
     const validStatuses = ['scheduled', 'dispatched', 'in_progress', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
-      throw new Error(`Invalid status: ${status}`);
+      throw new ValidationError(`Invalid status: ${status}`);
     }
 
     job.status = status;
@@ -379,11 +385,11 @@ class ServiceTitanService {
 
     const job = this.simulatedJobs.get(parseInt(jobId));
     if (!job) {
-      throw new Error(`Job with ID ${jobId} not found`);
+      throw new NotFoundError(`Job with ID ${jobId} not found`);
     }
 
     if (job.status === 'completed') {
-      throw new Error('Cannot cancel completed job');
+      throw new ConflictError('Cannot cancel completed job');
     }
 
     job.status = 'cancelled';
@@ -435,54 +441,61 @@ class ServiceTitanService {
 
     for (const field of required) {
       if (!bookingData[field]) {
-        throw new Error(`Missing required field: ${field}`);
+        throw new ValidationError(`Missing required field: ${field}`);
       }
     }
 
     // Validate phone format
     if (!/^\d{10,15}$/.test(bookingData.phone.replace(/[^\d]/g, ''))) {
-      throw new Error('Invalid phone number format');
+      throw new ValidationError('Invalid phone number format');
     }
 
     // Validate email format
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingData.email)) {
-      throw new Error('Invalid email format');
+      throw new ValidationError('Invalid email format');
     }
 
     // Validate ZIP code
     if (!/^\d{5}(-\d{4})?$/.test(bookingData.zip)) {
-      throw new Error('Invalid ZIP code format');
+      throw new ValidationError('Invalid ZIP code format');
     }
   }
 
   /**
    * Simulate various error scenarios
    */
-  async _simulateErrors(bookingData) {
+  _simulateErrors(bookingData) {
     // Simulate random API failures (5% chance)
     if (Math.random() < 0.05) {
-      throw new Error('ServiceTitan API temporarily unavailable');
+      throw new ExternalServiceError(
+        'ServiceTitan API temporarily unavailable',
+        'ServiceTitan',
+        'SERVICE_UNAVAILABLE',
+        true
+      );
     }
 
     // Simulate specific error cases
     if (bookingData.email === 'error@test.com') {
-      throw new Error('Customer already exists with conflicting information');
+      throw new ConflictError('Customer already exists with conflicting information');
     }
 
     if (bookingData.zip === '00000') {
-      throw new Error('Service area not supported');
+      throw new ValidationError('Service area not supported');
     }
 
     if (bookingData.phone === '0000000000') {
-      throw new Error('Invalid phone number - customer verification failed');
+      throw new ValidationError('Invalid phone number - customer verification failed');
     }
   }
 
   /**
    * Simulate API delay
    */
-  async _simulateDelay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  _simulateDelay(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   /**
@@ -582,7 +595,7 @@ class ServiceTitanService {
       'already exists',
     ];
 
-    if (nonRetryable.some(term => message.includes(term))) {
+    if (nonRetryable.some((term) => message.includes(term))) {
       return false;
     }
 
@@ -595,7 +608,7 @@ class ServiceTitanService {
       'service unavailable',
     ];
 
-    if (retryable.some(term => message.includes(term))) {
+    if (retryable.some((term) => message.includes(term))) {
       return true;
     }
 
@@ -610,21 +623,37 @@ class ServiceTitanService {
   getCircuitBreakerHealth() {
     return {
       createJob: {
-        state: this.createJobBreaker.opened ? 'open' : this.createJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.createJobBreaker.stats
+        state: this.createJobBreaker.opened
+          ? 'open'
+          : this.createJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.createJobBreaker.stats,
       },
       updateJob: {
-        state: this.updateJobBreaker.opened ? 'open' : this.updateJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.updateJobBreaker.stats
+        state: this.updateJobBreaker.opened
+          ? 'open'
+          : this.updateJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.updateJobBreaker.stats,
       },
       getJob: {
-        state: this.getJobBreaker.opened ? 'open' : this.getJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.getJobBreaker.stats
+        state: this.getJobBreaker.opened
+          ? 'open'
+          : this.getJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.getJobBreaker.stats,
       },
       cancelJob: {
-        state: this.cancelJobBreaker.opened ? 'open' : this.cancelJobBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.cancelJobBreaker.stats
-      }
+        state: this.cancelJobBreaker.opened
+          ? 'open'
+          : this.cancelJobBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.cancelJobBreaker.stats,
+      },
     };
   }
 }

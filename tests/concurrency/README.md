@@ -14,11 +14,13 @@ This directory contains tests to verify that the booking system prevents double-
 ## Running the Tests
 
 ### Basic Test (Default)
+
 ```bash
 npm run test:concurrency
 ```
 
 This runs 10 concurrent requests for the same slot, expecting:
+
 - ✅ Exactly 1 booking succeeds (201 Created)
 - ✅ 9 bookings fail with 409 Conflict
 - ✅ No unexpected errors
@@ -51,6 +53,7 @@ Total Requests:        10
 ```
 
 **This proves:**
+
 - Only ONE booking succeeded
 - All other requests got proper 409 Conflict errors
 - The slot cannot be double-booked
@@ -58,11 +61,13 @@ Total Requests:        10
 ### ❌ FAIL Scenarios
 
 **Multiple Successes:**
+
 ```
 ✓ Successful (201):    2+   ← BAD! Double-booking occurred
 ```
 
 **Unexpected Errors:**
+
 ```
 ✗ Errors (other):      1+   ← Something broke (500, timeout, etc.)
 ```
@@ -70,11 +75,13 @@ Total Requests:        10
 ## What Each Test Validates (V1)
 
 ### Test 1: Database Transaction Layer
+
 - Transactions ensure atomicity
 - Either entire booking succeeds OR entire booking rolls back
 - No partial bookings in database
 
 ### Test 2: Unique Constraint Layer (Primary Protection)
+
 - Database-level enforcement (last resort)
 - Unique index on `bookings(slot_id)` WHERE status NOT IN ('cancelled')
 - Database rejects duplicate `slot_id` with constraint violation
@@ -82,6 +89,7 @@ Total Requests:        10
 - **This is the primary protection mechanism in V1**
 
 ### V2 Addition: Redis Reservation Layer
+
 - Will add early rejection at Redis level (5-minute TTL)
 - Faster conflict detection, less database load
 - Requests fail IMMEDIATELY at Redis check before database
@@ -89,15 +97,18 @@ Total Requests:        10
 ## Performance Expectations
 
 **Response Times (V1 - Database Protection):**
+
 - Database rejection: 180-300ms (normal, still under 500ms target)
 - Successful booking: 50-100ms (async background jobs)
 
 **Response Times (V2 - With Redis):**
+
 - Redis rejection: < 50ms (very fast, early rejection)
 - Database rejection: 100-300ms (fallback if Redis degraded)
 - Successful booking: 50-100ms (async background jobs)
 
 **Concurrent Load:**
+
 - Should handle 50+ concurrent requests safely
 - No timeouts or crashes
 - Consistent behavior under load
@@ -105,18 +116,23 @@ Total Requests:        10
 ## Troubleshooting
 
 ### Server Not Running
+
 ```
 ✗ Cannot connect to server at http://localhost:3000
 ```
+
 **Solution:** Start the server with `npm run dev`
 
 ### Redis Not Running
+
 **V1:** Redis is not used for slot reservations. The system uses database protection only.
 
 **V2:** When Redis reservations are restored, the test will still pass if Redis is down (graceful degradation), but conflict detection will be slower.
 
 ### Multiple Bookings Succeed (Test Fails)
+
 This is a CRITICAL issue. Check:
+
 1. Is unique constraint applied? Run `\d bookings` in psql
 2. Are transactions working? Check [src/modules/bookings/service.js](../../src/modules/bookings/service.js)
 3. V2 only: Is Redis reservation logic correct? Check [src/services/reservationService.js](../../src/services/reservationService.js)

@@ -4,7 +4,7 @@ const serviceTitanIntegration = require('../integrations/servicetitan/integratio
 const schedulingService = require('../scheduling/service');
 const env = require('../../config/env');
 const { withTransaction } = require('../../utils/transaction');
-const { ConflictError } = require('../../utils/errors');
+const { ConflictError, NotFoundError, ExternalServiceError } = require('../../utils/errors');
 const logger = require('../../utils/logger');
 const errorLogService = require('../../services/errorLogService');
 
@@ -52,7 +52,7 @@ class BookingService {
         logger.warn('Unique constraint violation - slot already booked', {
           fields: error.fields,
           message: error.message,
-          parent: error.parent?.detail
+          parent: error.parent?.detail,
         });
 
         // Check if it's the slot_id constraint
@@ -64,9 +64,7 @@ class BookingService {
 
         // Check if it's the service_titan_job_id constraint
         if (error.fields && error.fields.service_titan_job_id) {
-          throw new ConflictError(
-            'ServiceTitan job ID conflict. Please try again.'
-          );
+          throw new ConflictError('ServiceTitan job ID conflict. Please try again.');
         }
 
         // Generic unique constraint error
@@ -106,7 +104,8 @@ class BookingService {
         });
       }
 
-      throw new Error(`Failed to create booking: ${error.message}`);
+      // Re-throw the original error (already properly typed)
+      throw error;
     }
   }
 
@@ -125,7 +124,7 @@ class BookingService {
 
       return null;
     } catch (error) {
-      throw new Error(`Failed to get booking: ${error.message}`);
+      throw error;
     }
   }
 
@@ -189,7 +188,7 @@ class BookingService {
         },
       };
     } catch (error) {
-      throw new Error(`Failed to get bookings: ${error.message}`);
+      throw error;
     }
   }
 
@@ -218,7 +217,7 @@ class BookingService {
         return this._transformModelToResponse(booking);
       });
     } catch (error) {
-      throw new Error(`Failed to update booking: ${error.message}`);
+      throw error;
     }
   }
 
@@ -240,7 +239,7 @@ class BookingService {
 
       return this._transformModelToResponse(booking);
     } catch (error) {
-      throw new Error(`Failed to update booking status: ${error.message}`);
+      throw error;
     }
   }
 
@@ -260,7 +259,7 @@ class BookingService {
       await booking.update({ status: 'cancelled' });
       return true;
     } catch (error) {
-      throw new Error(`Failed to delete booking: ${error.message}`);
+      throw error;
     }
   }
 
@@ -282,7 +281,7 @@ class BookingService {
 
       return this._transformModelToResponse(booking);
     } catch (error) {
-      throw new Error(`Failed to link ServiceTitan job: ${error.message}`);
+      throw error;
     }
   }
 
@@ -302,7 +301,7 @@ class BookingService {
 
       return bookings.map((booking) => this._transformModelToResponse(booking));
     } catch (error) {
-      throw new Error(`Failed to get bookings by phone: ${error.message}`);
+      throw error;
     }
   }
 
@@ -317,11 +316,11 @@ class BookingService {
       const booking = await Booking.findByPk(bookingId);
 
       if (!booking) {
-        throw new Error('Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       if (!booking.serviceTitanJobId) {
-        throw new Error('No ServiceTitan job ID associated with this booking');
+        throw new NotFoundError('No ServiceTitan job ID associated with this booking');
       }
 
       // Update status in ServiceTitan
@@ -349,12 +348,17 @@ class BookingService {
           error: result.error,
         });
 
-        throw new Error(`ServiceTitan status update failed: ${result.error}`);
+        throw new ExternalServiceError(
+          `ServiceTitan status update failed: ${result.error}`,
+          'ServiceTitan',
+          'UPDATE_STATUS_FAILED',
+          true
+        );
       }
 
       return this._transformModelToResponse(booking);
     } catch (error) {
-      throw new Error(`Failed to update ServiceTitan status: ${error.message}`);
+      throw error;
     }
   }
 
@@ -369,11 +373,11 @@ class BookingService {
       const booking = await Booking.findByPk(bookingId);
 
       if (!booking) {
-        throw new Error('Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       if (!booking.serviceTitanJobId) {
-        throw new Error('No ServiceTitan job ID associated with this booking');
+        throw new NotFoundError('No ServiceTitan job ID associated with this booking');
       }
 
       // Cancel job in ServiceTitan
@@ -400,12 +404,17 @@ class BookingService {
           error: result.error,
         });
 
-        throw new Error(`ServiceTitan job cancellation failed: ${result.error}`);
+        throw new ExternalServiceError(
+          `ServiceTitan job cancellation failed: ${result.error}`,
+          'ServiceTitan',
+          'CANCEL_JOB_FAILED',
+          true
+        );
       }
 
       return this._transformModelToResponse(booking);
     } catch (error) {
-      throw new Error(`Failed to cancel ServiceTitan job: ${error.message}`);
+      throw error;
     }
   }
 
@@ -419,11 +428,11 @@ class BookingService {
       const booking = await Booking.findByPk(bookingId);
 
       if (!booking) {
-        throw new Error('Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       if (booking.serviceTitanJobId) {
-        throw new Error('ServiceTitan job already exists for this booking');
+        throw new ConflictError('ServiceTitan job already exists for this booking');
       }
 
       // Reconstruct booking data for ServiceTitan
@@ -455,12 +464,17 @@ class BookingService {
           serviceTitanError: result.error,
         });
 
-        throw new Error(`ServiceTitan job retry failed: ${result.error}`);
+        throw new ExternalServiceError(
+          `ServiceTitan job retry failed: ${result.error}`,
+          'ServiceTitan',
+          'RETRY_JOB_FAILED',
+          true
+        );
       }
 
       return this._transformModelToResponse(booking);
     } catch (error) {
-      throw new Error(`Failed to retry ServiceTitan job: ${error.message}`);
+      throw error;
     }
   }
 
@@ -474,17 +488,22 @@ class BookingService {
       const booking = await Booking.findByPk(bookingId);
 
       if (!booking) {
-        throw new Error('Booking not found');
+        throw new NotFoundError('Booking not found');
       }
 
       if (!booking.serviceTitanJobId) {
-        throw new Error('No ServiceTitan job ID associated with this booking');
+        throw new NotFoundError('No ServiceTitan job ID associated with this booking');
       }
 
       const result = await serviceTitanIntegration.getJob(booking.serviceTitanJobId);
 
       if (!result.success) {
-        throw new Error(`Failed to get ServiceTitan job details: ${result.error}`);
+        throw new ExternalServiceError(
+          `Failed to get ServiceTitan job details: ${result.error}`,
+          'ServiceTitan',
+          'GET_JOB_FAILED',
+          true
+        );
       }
 
       return {
@@ -492,7 +511,7 @@ class BookingService {
         serviceTitan: result.job,
       };
     } catch (error) {
-      throw new Error(`Failed to get ServiceTitan job details: ${error.message}`);
+      throw error;
     }
   }
 

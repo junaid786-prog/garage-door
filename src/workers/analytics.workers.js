@@ -33,7 +33,11 @@ const trackEvent = async (job) => {
 
     return result;
   } catch (error) {
-    logger.error('Analytics tracking failed', { eventType: eventData.event_type, error, jobId: job.id });
+    logger.error('Analytics tracking failed', {
+      eventType: eventData.event_type,
+      error,
+      jobId: job.id,
+    });
     throw error;
   }
 };
@@ -81,7 +85,10 @@ const processAttribution = async (job) => {
   const { attributionData } = job.data;
 
   try {
-    logger.info('Processing attribution data', { sessionId: attributionData.session_id, jobId: job.id });
+    logger.info('Processing attribution data', {
+      sessionId: attributionData.session_id,
+      jobId: job.id,
+    });
 
     // Process UTM parameters
     const attribution = {

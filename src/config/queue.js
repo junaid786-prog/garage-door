@@ -85,7 +85,12 @@ class QueueManager {
       });
 
       this.queues[queueName].on('failed', async (job, err) => {
-        logger.error('Job failed', { jobId: job.id, queueName, error: err, attemptsMade: job.attemptsMade });
+        logger.error('Job failed', {
+          jobId: job.id,
+          queueName,
+          error: err,
+          attemptsMade: job.attemptsMade,
+        });
 
         // Move to DLQ if max retries exceeded
         if (job.attemptsMade >= job.opts.attempts) {
@@ -340,7 +345,11 @@ class QueueManager {
   async getDLQJobs(start = 0, end = -1) {
     try {
       const dlq = this.getDLQ();
-      const jobs = await dlq.getJobs(['completed', 'waiting', 'active', 'delayed', 'failed'], start, end);
+      const jobs = await dlq.getJobs(
+        ['completed', 'waiting', 'active', 'delayed', 'failed'],
+        start,
+        end
+      );
 
       return Promise.all(
         jobs.map(async (job) => ({
@@ -366,7 +375,7 @@ class QueueManager {
       const queue = this.getQueue(queueName);
       const failed = await queue.getFailed(start, end);
 
-      return failed.map(job => ({
+      return failed.map((job) => ({
         id: job.id,
         type: job.name,
         data: job.data,

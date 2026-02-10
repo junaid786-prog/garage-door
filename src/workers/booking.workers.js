@@ -196,7 +196,11 @@ const validateBooking = async (job) => {
     if (validationResult.valid) {
       logger.info('Booking validation passed', { bookingId, jobId: job.id });
     } else {
-      logger.warn('Booking validation failed', { bookingId, errors: validationResult.errors, jobId: job.id });
+      logger.warn('Booking validation failed', {
+        bookingId,
+        errors: validationResult.errors,
+        jobId: job.id,
+      });
     }
 
     return validationResult;

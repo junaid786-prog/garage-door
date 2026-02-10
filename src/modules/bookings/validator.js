@@ -12,7 +12,7 @@ const serviceSchema = Joi.object({
 // Door schema
 const doorSchema = Joi.object({
   age_bucket: Joi.string().valid('lt_8', 'gte_8').required(),
-  count: Joi.number().valid(1, 2).required(),
+  count: Joi.number().valid(1, 2, 3).required(), // Accept 1, 2, or 3 doors
 });
 
 // Address schema
@@ -135,11 +135,15 @@ const validateBookingCreate = (req, res, next) => {
   if (error) {
     return res.status(400).json({
       success: false,
-      error: 'Validation error',
-      details: error.details.map((detail) => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-      })),
+      message: 'Validation error',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: error.details.map((detail) => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+        })),
+      },
+      timestamp: new Date().toISOString(),
     });
   }
   next();
@@ -150,11 +154,15 @@ const validateBookingUpdate = (req, res, next) => {
   if (error) {
     return res.status(400).json({
       success: false,
-      error: 'Validation error',
-      details: error.details.map((detail) => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-      })),
+      message: 'Validation error',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: error.details.map((detail) => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+        })),
+      },
+      timestamp: new Date().toISOString(),
     });
   }
   next();
@@ -165,11 +173,15 @@ const validateBookingStatus = (req, res, next) => {
   if (error) {
     return res.status(400).json({
       success: false,
-      error: 'Validation error',
-      details: error.details.map((detail) => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-      })),
+      message: 'Validation error',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: error.details.map((detail) => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+        })),
+      },
+      timestamp: new Date().toISOString(),
     });
   }
   next();
@@ -180,11 +192,15 @@ const validateBookingQuery = (req, res, next) => {
   if (error) {
     return res.status(400).json({
       success: false,
-      error: 'Query validation error',
-      details: error.details.map((detail) => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-      })),
+      message: 'Query validation error',
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: error.details.map((detail) => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+        })),
+      },
+      timestamp: new Date().toISOString(),
     });
   }
   req.query = value;

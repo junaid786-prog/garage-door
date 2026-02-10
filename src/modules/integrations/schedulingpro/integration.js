@@ -1,6 +1,5 @@
 const schedulingProService = require('./service');
 const { createCircuitBreaker } = require('../../../utils/circuitBreaker');
-const { ServiceUnavailableError, ExternalServiceError } = require('../../../utils/errors');
 const logger = require('../../../utils/logger');
 
 /**
@@ -26,11 +25,11 @@ class SchedulingProIntegration {
         errorThresholdPercentage: 50,
         resetTimeout: 5000,
       },
-      async (zipCode, startDate, endDate) => {
+      (zipCode, startDate, _endDate) => {
         // Fallback: Return cached slots or empty result
         logger.warn('SchedulingPro circuit breaker open for getSlots', {
           zipCode,
-          startDate: startDate?.toISOString()
+          startDate: startDate?.toISOString(),
         });
         return {
           success: false,
@@ -41,37 +40,28 @@ class SchedulingProIntegration {
     );
 
     // Circuit breaker for slot reservation
-    this.reserveSlotBreaker = createCircuitBreaker(
-      this._reserveSlotInternal.bind(this),
-      {
-        name: 'SchedulingPro.reserveSlot',
-        timeout: 8000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.reserveSlotBreaker = createCircuitBreaker(this._reserveSlotInternal.bind(this), {
+      name: 'SchedulingPro.reserveSlot',
+      timeout: 8000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
 
     // Circuit breaker for slot confirmation
-    this.confirmSlotBreaker = createCircuitBreaker(
-      this._confirmSlotInternal.bind(this),
-      {
-        name: 'SchedulingPro.confirmSlot',
-        timeout: 8000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.confirmSlotBreaker = createCircuitBreaker(this._confirmSlotInternal.bind(this), {
+      name: 'SchedulingPro.confirmSlot',
+      timeout: 8000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
 
     // Circuit breaker for slot cancellation
-    this.cancelSlotBreaker = createCircuitBreaker(
-      this._cancelSlotInternal.bind(this),
-      {
-        name: 'SchedulingPro.cancelSlot',
-        timeout: 8000,
-        errorThresholdPercentage: 50,
-        resetTimeout: 5000,
-      }
-    );
+    this.cancelSlotBreaker = createCircuitBreaker(this._cancelSlotInternal.bind(this), {
+      name: 'SchedulingPro.cancelSlot',
+      timeout: 8000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 5000,
+    });
   }
   /**
    * Get available time slots for a ZIP code (with circuit breaker protection)
@@ -365,7 +355,7 @@ class SchedulingProIntegration {
    * @param {string} timezone - Timezone for grouping
    * @returns {Object} Grouped slots
    */
-  groupSlotsByTimeframe(slots, timezone = 'America/Phoenix') {
+  groupSlotsByTimeframe(slots, _timezone = 'America/Phoenix') {
     const now = new Date();
     const today = new Date(now.toDateString());
     const tomorrow = new Date(today);
@@ -454,21 +444,37 @@ class SchedulingProIntegration {
   getCircuitBreakerHealth() {
     return {
       getSlots: {
-        state: this.getSlotsBreaker.opened ? 'open' : this.getSlotsBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.getSlotsBreaker.stats
+        state: this.getSlotsBreaker.opened
+          ? 'open'
+          : this.getSlotsBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.getSlotsBreaker.stats,
       },
       reserveSlot: {
-        state: this.reserveSlotBreaker.opened ? 'open' : this.reserveSlotBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.reserveSlotBreaker.stats
+        state: this.reserveSlotBreaker.opened
+          ? 'open'
+          : this.reserveSlotBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.reserveSlotBreaker.stats,
       },
       confirmSlot: {
-        state: this.confirmSlotBreaker.opened ? 'open' : this.confirmSlotBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.confirmSlotBreaker.stats
+        state: this.confirmSlotBreaker.opened
+          ? 'open'
+          : this.confirmSlotBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.confirmSlotBreaker.stats,
       },
       cancelSlot: {
-        state: this.cancelSlotBreaker.opened ? 'open' : this.cancelSlotBreaker.halfOpen ? 'half-open' : 'closed',
-        stats: this.cancelSlotBreaker.stats
-      }
+        state: this.cancelSlotBreaker.opened
+          ? 'open'
+          : this.cancelSlotBreaker.halfOpen
+            ? 'half-open'
+            : 'closed',
+        stats: this.cancelSlotBreaker.stats,
+      },
     };
   }
 }

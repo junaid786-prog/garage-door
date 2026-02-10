@@ -1,5 +1,6 @@
 const service = require('./service');
 const APIResponse = require('../../utils/response');
+const { ValidationError } = require('../../utils/errors');
 
 /**
  * Scheduling controller - handles scheduling requests from frontend
@@ -16,41 +17,27 @@ class SchedulingController {
       const { zip } = req.query;
 
       if (!zip) {
-        return APIResponse.badRequest(res, 'ZIP code is required');
+        throw new ValidationError('ZIP code is required');
       }
 
       // Optional parameters
-      let startDate = req.query.date ? new Date(req.query.date) : null;
+      const startDate = req.query.date ? new Date(req.query.date) : null;
       const days = req.query.days ? parseInt(req.query.days) : 7;
 
       // Validate date if provided
       if (startDate && isNaN(startDate.getTime())) {
-        return APIResponse.badRequest(res, 'Invalid date format. Use YYYY-MM-DD');
+        throw new ValidationError('Invalid date format. Use YYYY-MM-DD');
       }
 
       // Validate days parameter
       if (days < 1 || days > 30) {
-        return APIResponse.badRequest(res, 'Days parameter must be between 1 and 30');
+        throw new ValidationError('Days parameter must be between 1 and 30');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.getAvailableSlots(zip, startDate, days);
 
-      if (result.success) {
-        return APIResponse.success(res, result, 'Available slots retrieved successfully');
-      } else {
-        // Handle kill switch
-        if (result.disabled) {
-          return APIResponse.error(res, result.error, 503);
-        }
-
-        // Handle specific error cases
-        if (result.error.includes('service not available')) {
-          return APIResponse.badRequest(res, result.error);
-        }
-
-        // Other errors
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.success(res, result, 'Available slots retrieved successfully');
     } catch (error) {
       next(error);
     }
@@ -67,35 +54,17 @@ class SchedulingController {
       const { slotId, bookingId, customerInfo } = req.body;
 
       if (!slotId) {
-        return APIResponse.badRequest(res, 'Slot ID is required');
+        throw new ValidationError('Slot ID is required');
       }
 
       if (!bookingId) {
-        return APIResponse.badRequest(res, 'Booking ID is required');
+        throw new ValidationError('Booking ID is required');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.reserveSlot(slotId, bookingId, customerInfo);
 
-      if (result.success) {
-        return APIResponse.created(res, result, 'Slot reserved successfully');
-      } else {
-        // Handle kill switch
-        if (result.disabled) {
-          return APIResponse.error(res, result.error, 503);
-        }
-
-        // Handle specific error cases
-        if (result.error.includes('already reserved')) {
-          return APIResponse.conflict(res, result.error);
-        }
-
-        if (result.error.includes('not available')) {
-          return APIResponse.badRequest(res, result.error);
-        }
-
-        // Other errors
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.created(res, result, 'Slot reserved successfully');
     } catch (error) {
       next(error);
     }
@@ -112,21 +81,13 @@ class SchedulingController {
       const { zip } = req.query;
 
       if (!zip) {
-        return APIResponse.badRequest(res, 'ZIP code is required');
+        throw new ValidationError('ZIP code is required');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.checkServiceAvailability(zip);
 
-      if (result.success) {
-        return APIResponse.success(res, result, 'Service availability checked successfully');
-      } else {
-        // Handle kill switch
-        if (result.disabled) {
-          return APIResponse.error(res, result.error, 503);
-        }
-
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.success(res, result, 'Service availability checked successfully');
     } catch (error) {
       next(error);
     }
@@ -144,24 +105,17 @@ class SchedulingController {
       const { bookingId } = req.body;
 
       if (!slotId) {
-        return APIResponse.badRequest(res, 'Slot ID is required');
+        throw new ValidationError('Slot ID is required');
       }
 
       if (!bookingId) {
-        return APIResponse.badRequest(res, 'Booking ID is required');
+        throw new ValidationError('Booking ID is required');
       }
 
+      // Service now throws errors instead of returning result objects
       const result = await service.cancelSlot(slotId, bookingId);
 
-      if (result.success) {
-        return APIResponse.success(res, result, 'Slot reservation cancelled successfully');
-      } else {
-        if (result.error.includes('not found')) {
-          return APIResponse.notFound(res, result.error);
-        }
-
-        return APIResponse.error(res, result.error, 503);
-      }
+      return APIResponse.success(res, result, 'Slot reservation cancelled successfully');
     } catch (error) {
       next(error);
     }
@@ -241,15 +195,7 @@ class SchedulingController {
         },
       };
 
-      if (health.success) {
-        return APIResponse.success(
-          res,
-          response,
-          'Scheduling system health retrieved successfully'
-        );
-      } else {
-        return APIResponse.error(res, health.error, 503);
-      }
+      return APIResponse.success(res, response, 'Scheduling system health retrieved successfully');
     } catch (error) {
       next(error);
     }

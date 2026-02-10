@@ -1,3 +1,5 @@
+const { ValidationError } = require('../../utils/errors');
+
 /**
  * Geo location service
  * Provides geolocation functionality for addresses and ZIP codes
@@ -10,7 +12,7 @@ class GeoService {
    */
   async getLocationByZip(zipCode) {
     if (!zipCode) {
-      throw new Error('ZIP code is required');
+      throw new ValidationError('ZIP code is required');
     }
 
     // Dummy data for now - replace with actual geolocation service
@@ -35,7 +37,7 @@ class GeoService {
    */
   async getLocationByCoordinates(latitude, longitude) {
     if (!latitude || !longitude) {
-      throw new Error('Latitude and longitude are required');
+      throw new ValidationError('Latitude and longitude are required');
     }
 
     // Dummy data for now - replace with actual reverse geocoding service
@@ -59,7 +61,7 @@ class GeoService {
    */
   async validateServiceArea(zipCode) {
     if (!zipCode) {
-      throw new Error('ZIP code is required');
+      throw new ValidationError('ZIP code is required');
     }
 
     // Dummy validation - replace with actual service area logic
@@ -142,7 +144,7 @@ class GeoService {
    */
   async calculateDistance(point1, point2) {
     if (!point1?.latitude || !point1?.longitude || !point2?.latitude || !point2?.longitude) {
-      throw new Error('Valid coordinates required for both points');
+      throw new ValidationError('Valid coordinates required for both points');
     }
 
     // Simple distance calculation (replace with more accurate formula if needed)
@@ -214,7 +216,7 @@ class GeoService {
    */
   async validateSchedulingAvailability(zipCode) {
     if (!zipCode) {
-      throw new Error('ZIP code is required');
+      throw new ValidationError('ZIP code is required');
     }
 
     const serviceableZips = this.getServiceableZipCodes();

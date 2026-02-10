@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const { ValidationError } = require('../utils/errors');
 
 /**
  * Request Validation Middleware
@@ -117,13 +118,7 @@ function validateRequest(req, res, next) {
         path: req.path,
       });
 
-      return res.status(400).json({
-        success: false,
-        error: 'Validation error',
-        message: `Request object is too deeply nested (max depth: ${MAX_DEPTH})`,
-        code: 'REQUEST_TOO_COMPLEX',
-        timestamp: new Date().toISOString(),
-      });
+      throw new ValidationError(`Request object is too deeply nested (max depth: ${MAX_DEPTH})`);
     }
 
     // Check total field count
@@ -136,13 +131,7 @@ function validateRequest(req, res, next) {
         path: req.path,
       });
 
-      return res.status(400).json({
-        success: false,
-        error: 'Validation error',
-        message: `Request has too many fields (max: ${MAX_FIELDS})`,
-        code: 'REQUEST_TOO_COMPLEX',
-        timestamp: new Date().toISOString(),
-      });
+      throw new ValidationError(`Request has too many fields (max: ${MAX_FIELDS})`);
     }
 
     // Validate keys and values
@@ -154,27 +143,25 @@ function validateRequest(req, res, next) {
         path: req.path,
       });
 
-      return res.status(400).json({
-        success: false,
-        error: 'Validation error',
-        message: validationError.message,
-        field: validationError.field,
-        code: 'REQUEST_INVALID',
-        timestamp: new Date().toISOString(),
-      });
+      throw new ValidationError(`${validationError.field}: ${validationError.message}`);
     }
 
     // Request is valid
     next();
   } catch (error) {
+    // If it's already a ValidationError, pass it to global error handler
+    if (error instanceof ValidationError) {
+      return next(error);
+    }
+
+    // For unexpected errors during validation, log and allow request through
+    // (fail open to avoid blocking legitimate requests)
     logger.error('Request validation error', {
       error: error.message,
       ip: req.ip,
       path: req.path,
     });
 
-    // In case of validation error, allow request through
-    // (fail open to avoid blocking legitimate requests)
     next();
   }
 }

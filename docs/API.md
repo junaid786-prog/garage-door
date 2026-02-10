@@ -5,20 +5,122 @@
 **Authentication:** All `/api/*` and `/admin/*` endpoints require `X-API-Key` header.
 
 **Rate Limiting:**
+
 - Booking operations (POST/PUT/DELETE): 10 requests / 15 minutes per IP
 - Read operations (GET): 100 requests / 15 minutes per IP
 - Global rate limit: 100 requests / 15 minutes per IP
 
 ---
 
+## Standardized Error Handling
+
+**All API endpoints follow a consistent error response format. Errors are handled by a global error handler that standardizes responses across the entire API.**
+
+### Error Response Format
+
+**Standard Error Response Structure:**
+```json
+{
+  "success": false,
+  "message": "User-friendly error message",
+  "error": {
+    "code": "ERROR_CODE"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+**Validation Error Response (includes details array):**
+```json
+{
+  "success": false,
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "fieldName",
+        "message": "Field-specific error message"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+### Standard Error Codes
+
+| HTTP Status | Error Code | Description |
+|------------|-----------|-------------|
+| `400` | `VALIDATION_ERROR` | Input validation failed |
+| `400` | `BAD_REQUEST` | Invalid request format or parameters |
+| `401` | `UNAUTHORIZED` | Missing or invalid API key |
+| `404` | `NOT_FOUND` | Resource not found |
+| `409` | `CONFLICT` | Resource conflict (e.g., slot already booked) |
+| `429` | `RATE_LIMIT_EXCEEDED` | Too many requests |
+| `500` | `INTERNAL_ERROR` | Internal server error |
+| `502` | `EXTERNAL_SERVICE_ERROR` | External API integration failed |
+| `503` | `SERVICE_UNAVAILABLE` | Service temporarily unavailable |
+
+### Error Handling Flow
+
+1. **Service Layer** throws custom error classes (`ValidationError`, `NotFoundError`, `ConflictError`, etc.)
+2. **Controllers** pass errors to global error handler via `next(error)`
+3. **Global Error Handler** maps error types to HTTP status codes and standardizes response format
+4. **Client** receives consistent error structure with proper status code
+
+### Validation Error Details
+
+**Validation errors always include a `details` array inside the `error` object:**
+
+```json
+{
+  "success": false,
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "service.type",
+        "message": "\"service.type\" must be one of [repair, replacement]"
+      },
+      {
+        "field": "contact.phoneE164",
+        "message": "\"contact.phoneE164\" is required"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+**Note:** Field names use dot notation for nested fields (e.g., `service.type`, `contact.phoneE164`).
+
+### Development vs Production
+
+- **Production:** Error messages are sanitized and minimal details exposed
+- **Development:** Additional debug information may be included (e.g., stack traces)
+- **Both:** Always return same standardized structure
+
+### Security Considerations
+
+- PII (Personally Identifiable Information) is never exposed in error messages
+- Stack traces are sanitized to remove file paths and sensitive data
+- Error messages are designed to be helpful without revealing system internals
+- All errors are logged server-side with full context (not exposed to client)
+
+---
+
 ## Authentication
 
 ### Header Required
+
 ```http
 X-API-Key: your-api-key-here
 ```
 
 ### Error Response (401)
+
 ```json
 {
   "success": false,
@@ -41,6 +143,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 10 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "service": {
@@ -76,6 +179,7 @@ X-API-Key: your-api-key-here
 ```
 
 **Field Validations:**
+
 - `service.type`: `"repair"` | `"replacement"` (required)
 - `service.symptom`: `"wont_open"` | `"wont_close"` | `"spring_bang"` | `"tune_up"` | `"other"` (required)
 - `service.can_open_close`: `"yes"` | `"no"` | `"partial"` (required)
@@ -98,6 +202,7 @@ X-API-Key: your-api-key-here
 - `suspected_issue`: max 500 chars (optional)
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -138,20 +243,26 @@ X-API-Key: your-api-key-here
 ```
 
 **Validation Error (400):**
+
 ```json
 {
   "success": false,
-  "error": "Validation error",
-  "details": [
-    {
-      "field": "service.type",
-      "message": "\"service.type\" must be one of [repair, replacement]"
-    }
-  ]
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "service.type",
+        "message": "\"service.type\" must be one of [repair, replacement]"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
 **Slot Already Booked (409):**
+
 ```json
 {
   "success": false,
@@ -164,6 +275,7 @@ X-API-Key: your-api-key-here
 ```
 
 **Rate Limit Exceeded (429):**
+
 ```json
 {
   "success": false,
@@ -184,6 +296,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -233,11 +346,15 @@ X-API-Key: your-api-key-here
 ```
 
 **Not Found (404):**
+
 ```json
 {
   "success": false,
   "message": "Booking not found",
-  "timestamp": "2026-02-09T13:34:14.452Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -250,6 +367,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Query Parameters:**
+
 - `status`: `"pending"` | `"confirmed"` | `"in_progress"` | `"completed"` | `"cancelled"` (optional)
 - `phone`: E.164 format `+1XXXXXXXXXX` (optional)
 - `zip`: `12345` or `12345-1234` (optional)
@@ -262,6 +380,7 @@ X-API-Key: your-api-key-here
 **Example:** `GET /api/bookings?status=pending&limit=5`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -273,10 +392,20 @@ X-API-Key: your-api-key-here
         "service": { "type": "repair", "symptom": "wont_open", "can_open_close": "no" },
         "door": { "age_bucket": "gte_8", "count": 1 },
         "replacement_pref": null,
-        "address": { "street": "123 Main St", "unit": "", "city": "Scottsdale", "state": "AZ", "zip": "85251" },
+        "address": {
+          "street": "123 Main St",
+          "unit": "",
+          "city": "Scottsdale",
+          "state": "AZ",
+          "zip": "85251"
+        },
         "occupancy": { "type": "homeowner", "renterPermission": null },
         "contact": { "phoneE164": "+14805551234", "name": "John Doe" },
-        "scheduling": { "slot_id": "slot_2026-02-15_1000", "asap_selected": false, "priority_score": null },
+        "scheduling": {
+          "slot_id": "slot_2026-02-15_1000",
+          "asap_selected": false,
+          "priority_score": null
+        },
         "notes": "Garage door won't open at all",
         "suspected_issue": null,
         "status": "pending",
@@ -308,21 +437,28 @@ X-API-Key: your-api-key-here
 **Request Body:** Partial booking object (same structure as create, all fields optional)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
   "message": "Booking updated successfully",
-  "data": { /* Updated booking object */ },
+  "data": {
+    /* Updated booking object */
+  },
   "timestamp": "2026-02-09T13:34:14.452Z"
 }
 ```
 
 **Not Found (404):**
+
 ```json
 {
   "success": false,
   "message": "Booking not found",
-  "timestamp": "2026-02-09T13:34:14.452Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -335,6 +471,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 10 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "status": "confirmed"
@@ -344,11 +481,14 @@ X-API-Key: your-api-key-here
 **Valid Statuses:** `"pending"` | `"confirmed"` | `"in_progress"` | `"completed"` | `"cancelled"`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
   "message": "Booking status updated successfully",
-  "data": { /* Updated booking object */ },
+  "data": {
+    /* Updated booking object */
+  },
   "timestamp": "2026-02-09T13:34:14.452Z"
 }
 ```
@@ -364,11 +504,15 @@ X-API-Key: your-api-key-here
 **Success Response (204):** No content
 
 **Not Found (404):**
+
 ```json
 {
   "success": false,
   "message": "Booking not found",
-  "timestamp": "2026-02-09T13:34:14.452Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -383,12 +527,15 @@ X-API-Key: your-api-key-here
 **Example:** `GET /api/bookings/phone/+14805551234`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
   "message": "Bookings retrieved successfully",
   "data": {
-    "bookings": [ /* Array of booking objects */ ]
+    "bookings": [
+      /* Array of booking objects */
+    ]
   },
   "timestamp": "2026-02-09T13:34:14.598Z"
 }
@@ -403,6 +550,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 10 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "serviceTitanJobId": "ST-12345"
@@ -410,11 +558,14 @@ X-API-Key: your-api-key-here
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
   "message": "ServiceTitan job linked successfully",
-  "data": { /* Updated booking object */ },
+  "data": {
+    /* Updated booking object */
+  },
   "timestamp": "2026-02-09T13:34:14.452Z"
 }
 ```
@@ -430,11 +581,13 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Query Parameters:**
+
 - `zip`: ZIP code (optional, defaults to `85251`)
 
 **Example:** `GET /api/geo?zip=85251`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -462,6 +615,7 @@ X-API-Key: your-api-key-here
 **Example:** `GET /api/geo/validate/85251`
 
 **Success Response - Serviceable (200):**
+
 ```json
 {
   "success": true,
@@ -477,6 +631,7 @@ X-API-Key: your-api-key-here
 ```
 
 **Success Response - Not Serviceable (200):**
+
 ```json
 {
   "success": true,
@@ -492,12 +647,21 @@ X-API-Key: your-api-key-here
 ```
 
 **Validation Error (400):**
+
 ```json
 {
   "success": false,
-  "error": "Validation Error",
   "message": "ZIP code must be in format 12345 or 12345-1234",
-  "details": [ /* Validation errors */ ]
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "zipCode",
+        "message": "ZIP code must be in format 12345 or 12345-1234"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -510,6 +674,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -535,12 +700,14 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Query Parameters:**
+
 - `latitude`: -90 to 90 (required)
 - `longitude`: -180 to 180 (required)
 
 **Example:** `GET /api/geo/coordinates?latitude=33.4942&longitude=-111.9261`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -566,6 +733,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -589,6 +757,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "point1": {
@@ -596,13 +765,14 @@ X-API-Key: your-api-key-here
     "longitude": -111.9261
   },
   "point2": {
-    "latitude": 33.5000,
-    "longitude": -112.0000
+    "latitude": 33.5,
+    "longitude": -112.0
   }
 }
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -611,7 +781,7 @@ X-API-Key: your-api-key-here
     "distance": 8.3,
     "unit": "miles",
     "point1": { "latitude": 33.4942, "longitude": -111.9261 },
-    "point2": { "latitude": 33.5000, "longitude": -112.0000 }
+    "point2": { "latitude": 33.5, "longitude": -112.0 }
   },
   "timestamp": "2026-02-09T13:34:00.184Z"
 }
@@ -628,6 +798,7 @@ X-API-Key: your-api-key-here
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Query Parameters:**
+
 - `zip`: ZIP code in `12345` or `12345-1234` format (required)
 - `date`: Start date in `YYYY-MM-DD` format (optional, defaults to today)
 - `days`: Number of days to fetch (1-30, default: 7)
@@ -635,6 +806,7 @@ X-API-Key: your-api-key-here
 **Example:** `GET /api/scheduling/slots?zip=85251&date=2026-02-15&days=3`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -663,6 +835,7 @@ X-API-Key: your-api-key-here
 ```
 
 **Kill Switch Enabled (503):**
+
 ```json
 {
   "success": false,
@@ -675,31 +848,36 @@ X-API-Key: your-api-key-here
 ```
 
 **Validation Error - Date in Past (400):**
+
 ```json
 {
   "success": false,
-  "error": "Validation Error",
-  "message": "Date cannot be in the past"
+  "message": "Date cannot be in the past",
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
 **Validation Error - Days Out of Range (400):**
+
 ```json
 {
   "success": false,
-  "error": "Validation Error",
   "message": "Invalid input data",
-  "details": [
-    {
-      "field": "days",
-      "message": "Days must be at least 1",
-      "value": 0
-    }
-  ]
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "days",
+        "message": "Days cannot exceed 30"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
-
-**Note:** Scheduling and geo validation errors include `value` field. Booking and event validation errors only include `field` and `message`.
 
 ---
 
@@ -714,6 +892,7 @@ This endpoint is disabled in V1 per client requirement (operations team doesn't 
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "slotId": "slot_2026-02-15_1000",
@@ -728,6 +907,7 @@ This endpoint is disabled in V1 per client requirement (operations team doesn't 
 ```
 
 **Field Validations:**
+
 - `slotId`: Format `slot_YYYY-MM-DD_HHMM` (required)
 - `bookingId`: 1-100 chars (required)
 - `customerInfo`: Object (optional)
@@ -737,6 +917,7 @@ This endpoint is disabled in V1 per client requirement (operations team doesn't 
   - `notes`: max 500 chars
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -752,6 +933,7 @@ This endpoint is disabled in V1 per client requirement (operations team doesn't 
 ```
 
 **Slot Already Reserved (409):**
+
 ```json
 {
   "success": false,
@@ -764,11 +946,15 @@ This endpoint is disabled in V1 per client requirement (operations team doesn't 
 ```
 
 **Slot Not Available (400):**
+
 ```json
 {
   "success": false,
   "message": "Slot not available",
-  "timestamp": "2026-02-09T13:34:00.309Z"
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -781,11 +967,13 @@ This endpoint is disabled in V1 per client requirement (operations team doesn't 
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Query Parameters:**
+
 - `zip`: ZIP code (required)
 
 **Example:** `GET /api/scheduling/availability?zip=85251`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -813,6 +1001,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "bookingId": "f76cc4ed-9c83-4c17-ae9f-1a9f85028eaf"
@@ -820,6 +1009,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -833,11 +1023,15 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Not Found (404):**
+
 ```json
 {
   "success": false,
   "message": "Reservation not found",
-  "timestamp": "2026-02-09T13:34:00.309Z"
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -852,6 +1046,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "event": "page_view",
@@ -865,6 +1060,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -894,6 +1090,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Query Parameters:**
+
 - `name`: Event name (optional)
 - `sessionId`: Session ID (optional)
 - `startDate`: ISO 8601 date (optional)
@@ -905,12 +1102,15 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 - `orderDir`: `ASC` | `DESC` (optional)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
   "message": "Events retrieved successfully",
   "data": {
-    "events": [ /* Array of event objects */ ],
+    "events": [
+      /* Array of event objects */
+    ],
     "total": 123,
     "limit": 20,
     "offset": 0
@@ -928,10 +1128,12 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Query Parameters:**
+
 - `startDate`: ISO 8601 date (optional)
 - `endDate`: ISO 8601 date (optional)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -961,13 +1163,16 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
   "message": "Session events retrieved successfully",
   "data": {
     "sessionId": "test-session-123",
-    "events": [ /* Array of event objects */ ]
+    "events": [
+      /* Array of event objects */
+    ]
   },
   "timestamp": "2026-02-09T13:34:14.675Z"
 }
@@ -982,6 +1187,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Rate Limit:** 100 requests / 15 minutes per IP
 
 **Request Body:**
+
 ```json
 {
   "eventNames": ["page_view", "form_start", "form_submit"],
@@ -991,6 +1197,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1018,6 +1225,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Authentication:** None required
 
 **Success Response (200):**
+
 ```json
 {
   "status": "healthy",
@@ -1035,6 +1243,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Authentication:** None required
 
 **Success Response (200):**
+
 ```json
 {
   "status": "degraded",
@@ -1075,9 +1284,30 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "circuitBreakersOpen": 1,
   "queues": {
     "stats": {
-      "bookings": { "waiting": 0, "active": 0, "completed": 312, "failed": 0, "delayed": 0, "paused": 0 },
-      "notifications": { "waiting": 0, "active": 0, "completed": 0, "failed": 0, "delayed": 0, "paused": 0 },
-      "analytics": { "waiting": 0, "active": 0, "completed": 0, "failed": 0, "delayed": 0, "paused": 0 }
+      "bookings": {
+        "waiting": 0,
+        "active": 0,
+        "completed": 312,
+        "failed": 0,
+        "delayed": 0,
+        "paused": 0
+      },
+      "notifications": {
+        "waiting": 0,
+        "active": 0,
+        "completed": 0,
+        "failed": 0,
+        "delayed": 0,
+        "paused": 0
+      },
+      "analytics": {
+        "waiting": 0,
+        "active": 0,
+        "completed": 0,
+        "failed": 0,
+        "delayed": 0,
+        "paused": 0
+      }
     },
     "dlq": {
       "total": 0,
@@ -1094,6 +1324,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Status Values:**
+
 - `healthy`: All systems operational
 - `degraded`: Some systems degraded but functional
 - `unhealthy`: Critical systems down
@@ -1109,6 +1340,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Authentication:** None required
 
 **Success Response (200):**
+
 ```json
 {
   "timestamp": "2026-02-09T13:34:14.745Z",
@@ -1132,6 +1364,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Circuit Breaker States:**
+
 - `closed`: Normal operation
 - `open`: Service failing, requests blocked
 - `half-open`: Testing if service recovered
@@ -1147,12 +1380,14 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/errors/unresolved`
 
 **Query Parameters:**
+
 - `operation`: Filter by operation (optional)
 - `serviceName`: Filter by service (optional)
 - `retryable`: Filter by retryable flag (optional)
 - `limit`: Max results (optional)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1184,6 +1419,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/errors/:id`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1209,11 +1445,15 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Not Found (404):**
+
 ```json
 {
   "success": false,
-  "error": "Error log not found",
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "message": "Error log not found",
+  "error": {
+    "code": "NOT_FOUND"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -1224,6 +1464,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `POST /admin/errors/:id/resolve`
 
 **Request Body:**
+
 ```json
 {
   "resolvedBy": "admin@example.com"
@@ -1231,6 +1472,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1252,6 +1494,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `POST /admin/errors/:id/retry`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1267,20 +1510,28 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Not Retryable (400):**
+
 ```json
 {
   "success": false,
-  "error": "This error is not retryable",
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "message": "This error is not retryable",
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
 **Already Resolved (400):**
+
 ```json
 {
   "success": false,
-  "error": "This error is already resolved",
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "message": "This error is already resolved",
+  "error": {
+    "code": "VALIDATION_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -1291,10 +1542,12 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/errors/stats`
 
 **Query Parameters:**
+
 - `startDate`: ISO 8601 date (optional)
 - `endDate`: ISO 8601 date (optional)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1329,10 +1582,12 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/queue/dlq`
 
 **Query Parameters:**
+
 - `page`: Page number (default: 1)
 - `limit`: Items per page (default: 20)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1374,6 +1629,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/queue/dlq/stats`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1395,6 +1651,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `POST /admin/queue/dlq/:jobId/retry`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1409,6 +1666,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Not Found (404):**
+
 ```json
 {
   "success": false,
@@ -1427,6 +1685,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `DELETE /admin/queue/dlq/:jobId`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1446,16 +1705,20 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/queue/:queueName/failed`
 
 **Query Parameters:**
+
 - `page`: Page number (default: 1)
 - `limit`: Items per page (default: 20)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
   "data": {
     "queue": "bookings",
-    "jobs": [ /* Array of failed job objects */ ],
+    "jobs": [
+      /* Array of failed job objects */
+    ],
     "pagination": {
       "page": 1,
       "limit": 20
@@ -1472,6 +1735,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/queue/stats`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1512,6 +1776,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /admin/queue/:queueName/stats`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1531,6 +1796,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Not Found (404):**
+
 ```json
 {
   "success": false,
@@ -1549,6 +1815,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `POST /admin/queue/:queueName/pause`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1564,6 +1831,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `POST /admin/queue/:queueName/resume`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1579,6 +1847,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `POST /admin/queue/:queueName/clean`
 
 **Request Body:**
+
 ```json
 {
   "grace": 86400000
@@ -1586,9 +1855,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ```
 
 **Parameters:**
+
 - `grace`: Grace period in milliseconds (default: 24 hours)
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1608,6 +1879,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /api/scheduling/admin/reservations`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1637,6 +1909,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `POST /api/scheduling/admin/cleanup`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1656,6 +1929,7 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 **Endpoint:** `GET /api/scheduling/health`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -1682,39 +1956,29 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 
 ## Common Error Responses
 
-### 400 Bad Request
+**See the [Standardized Error Handling](#standardized-error-handling) section at the top of this document for complete error handling documentation.**
 
-**Booking/Event Validation Errors:**
+### Quick Reference
+
+**Validation Error (400):**
 ```json
 {
   "success": false,
-  "error": "Validation error",
-  "details": [
-    {
-      "field": "fieldName",
-      "message": "Error description"
-    }
-  ]
+  "message": "Validation error",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "fieldName",
+        "message": "Error description"
+      }
+    ]
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-**Scheduling/Geo Validation Errors:**
-```json
-{
-  "success": false,
-  "error": "Validation Error",
-  "message": "Invalid input data",
-  "details": [
-    {
-      "field": "fieldName",
-      "message": "Error description",
-      "value": "invalidValue"
-    }
-  ]
-}
-```
-
-### 401 Unauthorized
+**Unauthorized (401):**
 ```json
 {
   "success": false,
@@ -1722,11 +1986,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "UNAUTHORIZED"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 404 Not Found
+**Not Found (404):**
 ```json
 {
   "success": false,
@@ -1734,11 +1998,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "NOT_FOUND"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 409 Conflict
+**Conflict (409):**
 ```json
 {
   "success": false,
@@ -1746,11 +2010,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "CONFLICT"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 429 Too Many Requests
+**Rate Limit Exceeded (429):**
 ```json
 {
   "success": false,
@@ -1758,11 +2022,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "RATE_LIMIT_EXCEEDED"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 500 Internal Server Error
+**Internal Server Error (500):**
 ```json
 {
   "success": false,
@@ -1770,11 +2034,11 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "INTERNAL_ERROR"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
-### 503 Service Unavailable
+**Service Unavailable (503):**
 ```json
 {
   "success": false,
@@ -1782,7 +2046,19 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
   "error": {
     "code": "SERVICE_UNAVAILABLE"
   },
-  "timestamp": "2026-02-09T13:34:14.675Z"
+  "timestamp": "2026-02-10T12:00:00.000Z"
+}
+```
+
+**External Service Error (502):**
+```json
+{
+  "success": false,
+  "message": "External service integration failed",
+  "error": {
+    "code": "EXTERNAL_SERVICE_ERROR"
+  },
+  "timestamp": "2026-02-10T12:00:00.000Z"
 }
 ```
 
@@ -1791,10 +2067,12 @@ This endpoint is disabled in V1. To cancel a booking, use `PATCH /api/bookings/:
 ## Response Headers
 
 All responses include:
+
 - `X-Response-Time`: Request processing time in milliseconds
 - `Content-Type`: `application/json`
 
 Rate limit headers (when rate limiting is active):
+
 - `X-RateLimit-Limit`: Maximum requests allowed
 - `X-RateLimit-Remaining`: Remaining requests in current window
 - `X-RateLimit-Reset`: Time when limit resets (Unix timestamp)

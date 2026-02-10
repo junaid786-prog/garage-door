@@ -1,4 +1,5 @@
 const serviceTitanService = require('./service');
+const { ExternalServiceError } = require('../../../utils/errors');
 
 /**
  * ServiceTitan job processor for queue system
@@ -63,8 +64,11 @@ class ServiceTitanJobProcessor {
         // Calculate exponential backoff delay
         const delay = this.retryDelay * Math.pow(2, attempt - 1);
 
-        throw new Error(
-          `ServiceTitan job creation failed (attempt ${attempt}/${this.maxRetries}): ${error.message}. Retrying in ${delay}ms`
+        throw new ExternalServiceError(
+          `ServiceTitan job creation failed (attempt ${attempt}/${this.maxRetries}): ${error.message}. Retrying in ${delay}ms`,
+          'ServiceTitan',
+          'JOB_CREATION_RETRY',
+          true
         );
       } else {
         // Final failure - log and handle gracefully
@@ -133,8 +137,11 @@ class ServiceTitanJobProcessor {
 
       if (shouldRetry) {
         const delay = this.retryDelay * Math.pow(2, attempt - 1);
-        throw new Error(
-          `ServiceTitan status update failed (attempt ${attempt}/${this.maxRetries}): ${error.message}. Retrying in ${delay}ms`
+        throw new ExternalServiceError(
+          `ServiceTitan status update failed (attempt ${attempt}/${this.maxRetries}): ${error.message}. Retrying in ${delay}ms`,
+          'ServiceTitan',
+          'STATUS_UPDATE_RETRY',
+          true
         );
       } else {
         return {
@@ -191,8 +198,11 @@ class ServiceTitanJobProcessor {
 
       if (shouldRetry) {
         const delay = this.retryDelay * Math.pow(2, attempt - 1);
-        throw new Error(
-          `ServiceTitan job cancellation failed (attempt ${attempt}/${this.maxRetries}): ${error.message}. Retrying in ${delay}ms`
+        throw new ExternalServiceError(
+          `ServiceTitan job cancellation failed (attempt ${attempt}/${this.maxRetries}): ${error.message}. Retrying in ${delay}ms`,
+          'ServiceTitan',
+          'JOB_CANCELLATION_RETRY',
+          true
         );
       } else {
         return {

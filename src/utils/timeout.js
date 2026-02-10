@@ -63,12 +63,7 @@ function allWithTimeout(promises, ms, errorMessage = 'Operations timed out') {
  * @returns {Promise} Result of function
  */
 async function withRetryAndTimeout(fn, options = {}) {
-  const {
-    retries = 3,
-    timeout = 5000,
-    delay = 1000,
-    shouldRetry = () => true,
-  } = options;
+  const { retries = 3, timeout = 5000, delay = 1000, shouldRetry = () => true } = options;
 
   let lastError;
   let attempt = 0;

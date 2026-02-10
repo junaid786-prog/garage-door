@@ -1,5 +1,6 @@
 const ErrorLog = require('../database/models/ErrorLog');
 const { sanitizeError } = require('../utils/errorSanitizer');
+const { NotFoundError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
 /**
@@ -65,6 +66,7 @@ class ErrorLogService {
         errorType,
         operation,
       });
+      // Re-throw the error as-is (already typed)
       throw logError;
     }
   }
@@ -103,6 +105,7 @@ class ErrorLogService {
       return errors;
     } catch (error) {
       logger.error('Failed to fetch unresolved errors', { error: error.message });
+      // Re-throw the error as-is
       throw error;
     }
   }
@@ -117,14 +120,13 @@ class ErrorLogService {
       const errorLog = await ErrorLog.findByPk(id);
 
       if (!errorLog) {
-        const error = new Error(`Error log not found: ${id}`);
-        error.code = 'ERROR_LOG_NOT_FOUND';
-        throw error;
+        throw new NotFoundError(`Error log not found: ${id}`);
       }
 
       return errorLog;
     } catch (error) {
       logger.error('Failed to fetch error log', { id, error: error.message });
+      // Re-throw the error as-is
       throw error;
     }
   }
@@ -153,6 +155,7 @@ class ErrorLogService {
       return errorLog;
     } catch (error) {
       logger.error('Failed to mark error as resolved', { id, error: error.message });
+      // Re-throw the error as-is
       throw error;
     }
   }
@@ -176,6 +179,7 @@ class ErrorLogService {
       return errorLog;
     } catch (error) {
       logger.error('Failed to increment retry count', { id, error: error.message });
+      // Re-throw the error as-is
       throw error;
     }
   }
@@ -215,6 +219,7 @@ class ErrorLogService {
       };
     } catch (error) {
       logger.error('Failed to fetch error statistics', { error: error.message });
+      // Re-throw the error as-is
       throw error;
     }
   }
@@ -246,6 +251,7 @@ class ErrorLogService {
       return deleted;
     } catch (error) {
       logger.error('Failed to cleanup old errors', { error: error.message });
+      // Re-throw the error as-is
       throw error;
     }
   }
