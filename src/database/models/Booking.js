@@ -37,7 +37,7 @@ const Booking = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       validate: {
-        isIn: [[1, 2]],
+        isIn: [[1, 2, 3]], // Accept 1, 2, or 3 doors
       },
       field: 'door_count',
     },

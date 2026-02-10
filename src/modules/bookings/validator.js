@@ -12,7 +12,7 @@ const serviceSchema = Joi.object({
 // Door schema
 const doorSchema = Joi.object({
   age_bucket: Joi.string().valid('lt_8', 'gte_8').required(),
-  count: Joi.number().valid(1, 2).required(),
+  count: Joi.number().valid(1, 2, 3).required(), // Accept 1, 2, or 3 doors
 });
 
 // Address schema
