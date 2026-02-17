@@ -18,6 +18,8 @@ const createServiceTitanJob = async (job) => {
       await Booking.update(
         {
           serviceTitanJobId: result.serviceTitanJobId,
+          serviceTitanCustomerId: result.serviceTitanCustomerId,
+          serviceTitanAppointmentNumber: result.serviceTitanAppointmentNumber,
           serviceTitanJobNumber: result.jobNumber,
           serviceTitanStatus: result.status,
           serviceTitanError: null, // Clear any previous errors
