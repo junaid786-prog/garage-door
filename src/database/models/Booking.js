@@ -184,6 +184,11 @@ const Booking = sequelize.define(
       allowNull: true,
       field: 'scheduling_pro_job_id',
     },
+    serviceTitanJobTypeId: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: 'service_titan_job_type_id',
+    },
   },
   {
     tableName: 'bookings',
