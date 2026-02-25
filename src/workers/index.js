@@ -31,20 +31,17 @@ class WorkerManager {
     logger.info('Starting queue workers');
 
     try {
-      // Start booking workers (1 concurrent for dev)
+      // Start booking workers (1 concurrent for dev) - CRITICAL - ALWAYS ENABLED
       this.startBookingWorkers(1);
 
-      // Start notification workers (1 concurrent for dev)
-      this.startNotificationWorkers(1);
-
-      // Start analytics workers (1 concurrent)
-      this.startAnalyticsWorkers(1);
-
-      // Start integration workers (1 concurrent for dev)
-      this.startIntegrationWorkers(1);
+      // DISABLED - Not critical for MVP, reduces Redis usage by ~60%
+      // Uncomment these when you have more Redis capacity or paid tier
+      // this.startNotificationWorkers(1);
+      // this.startAnalyticsWorkers(1);
+      // this.startIntegrationWorkers(1);
 
       this.isRunning = true;
-      logger.info('All queue workers started successfully');
+      logger.info('Queue workers started (booking only - notifications/analytics/integrations disabled to save Redis requests)');
 
       // Setup graceful shutdown
       this.setupGracefulShutdown();

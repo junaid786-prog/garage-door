@@ -53,15 +53,15 @@ class QueueManager {
   // Create or get existing queue
   getQueue(queueName) {
     if (!this.queues[queueName]) {
-      // Add settings to reduce Redis polling
+      // Add settings to reduce Redis polling - OPTIMIZED for Upstash free tier
       const queueSettings = {
         ...this.redisConfig,
         settings: {
-          stalledInterval: 60 * 1000, // Check for stalled jobs every 60s (vs 30s default)
+          stalledInterval: 300 * 1000, // Check for stalled jobs every 5 minutes (was 60s) - 80% reduction in polling
           maxStalledCount: 1, // Max stalled count before failed
-          retryProcessDelay: 5000, // Delay before retrying failed process
+          retryProcessDelay: 10000, // Delay before retrying failed process (was 5s, now 10s)
           backoffStrategies: {},
-          delayedDebounce: 5000, // Debounce delayed jobs (5s vs 1s default)
+          delayedDebounce: 10000, // Debounce delayed jobs (was 5s, now 10s)
         },
       };
 
@@ -136,8 +136,8 @@ class QueueManager {
         type: 'exponential',
         delay: 2000,
       },
-      removeOnComplete: 10,
-      removeOnFail: 5,
+      removeOnComplete: true, // Remove immediately after completion - saves Redis memory and requests
+      removeOnFail: true, // Remove failed jobs immediately - DLQ will keep them if needed
     };
 
     const jobOptions = { ...defaultOptions, ...options };
