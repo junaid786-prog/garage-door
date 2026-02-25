@@ -142,7 +142,7 @@ const Booking = sequelize.define(
 
     // External system IDs and status
     serviceTitanJobId: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: true,
       field: 'service_titan_job_id',
     },
@@ -169,10 +169,25 @@ const Booking = sequelize.define(
       allowNull: true,
       field: 'service_titan_error',
     },
+    serviceTitanCustomerId: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: 'service_titan_customer_id',
+    },
+    serviceTitanAppointmentNumber: {
+      type: DataTypes.STRING(30),
+      allowNull: true,
+      field: 'service_titan_appointment_number',
+    },
     schedulingProJobId: {
       type: DataTypes.STRING,
       allowNull: true,
       field: 'scheduling_pro_job_id',
+    },
+    serviceTitanJobTypeId: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: 'service_titan_job_type_id',
     },
   },
   {

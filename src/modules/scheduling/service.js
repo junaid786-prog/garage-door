@@ -1,22 +1,33 @@
 const schedulingProIntegration = require('../integrations/schedulingpro/integration');
 const geoService = require('../geo/service'); // Will enhance this
 const env = require('../../config/env');
-// const reservationService = require('../../services/reservationService'); // V2: Uncomment for Redis reservations
+// const reservationService = require('../../services/reservationService'); // V2: Uncomment for internal Redis reservations
 const logger = require('../../utils/logger');
 const { ServiceUnavailableError, ValidationError } = require('../../utils/errors');
 
 /**
- * Scheduling service - handles scheduling business logic with caching and reservations
+ * Scheduling service - handles scheduling business logic with caching and slot management
+ *
+ * V1 RESERVATION BEHAVIOR:
+ * - INTERNAL Redis reservations: DISABLED (no 5-min holds in our system)
+ * - EXTERNAL SchedulingPro API reservations: ACTIVE (15-min holds on their side)
+ * - Protection: Database unique constraint on slot_id prevents double-bookings
+ *
+ * TWO TYPES OF RESERVATIONS:
+ * 1. Internal (Redis) - reservationService - DISABLED in V1, kept for V2/V3
+ * 2. External (SchedulingPro API) - schedulingProIntegration.reserveSlot() - ACTIVE in V1
+ *
+ * Client requirement: No internal slot holding in V1 (ops team doesn't hold slots currently)
  */
 class SchedulingService {
   constructor() {
-    // In-memory cache for slots (Redis used for reservations)
+    // In-memory cache for available slots (NOT for reservations)
     this.slotsCache = new Map();
 
     // Configuration from environment
     this.cacheTimeout = env.SCHEDULING_CACHE_TTL_MINUTES * 60 * 1000; // Convert to milliseconds
-    this.reservationTimeout = env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES;
-    this.reservationTimeoutSeconds = env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES * 60; // Convert to seconds for Redis
+    this.reservationTimeout = env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES; // Used for external SchedulingPro API
+    this.reservationTimeoutSeconds = env.SCHEDULING_RESERVATION_TIMEOUT_MINUTES * 60; // For SchedulingPro API
     this.autoConfirmSlots = env.SCHEDULING_AUTO_CONFIRM_SLOTS;
   }
 

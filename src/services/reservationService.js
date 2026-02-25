@@ -1,8 +1,23 @@
 const { getRedisClient, redisHealthCheck } = require('../config/redis');
 
 /**
+ * ⚠️ NOT USED IN V1 - Reserved for future versions ⚠️
+ *
  * Redis-based slot reservation service
  * Provides distributed slot locking for multi-instance deployments
+ *
+ * V1 STATUS: DISABLED
+ * - Client requirement: V1 should NOT hold slots internally (no 5-minute Redis reservations)
+ * - Reason: Operations team confirmed they don't currently hold slots
+ * - This service exists for V2/V3 when internal slot holding is needed
+ *
+ * V1 BEHAVIOR:
+ * - Slots are NOT reserved in Redis
+ * - Only database-level unique constraint prevents double-bookings
+ * - External SchedulingPro API still reserves slots (15 min on their end)
+ *
+ * NOTE: This is INTERNAL slot reservation (our Redis), separate from EXTERNAL
+ * SchedulingPro API reservations which are still active in V1.
  */
 class ReservationService {
   constructor() {
