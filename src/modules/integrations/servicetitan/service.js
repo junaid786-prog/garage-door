@@ -182,8 +182,8 @@ class ServiceTitanService {
     // Validate required fields
     this._validateBookingData(bookingData);
 
-    // Simulate API delay
-    await this._simulateDelay(800);
+    // Simulate API delay (reduced from 800ms for better UX in synchronous calls)
+    await this._simulateDelay(400);
 
     // Simulate different error scenarios
     this._simulateErrors(bookingData);

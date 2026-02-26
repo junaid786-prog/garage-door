@@ -31,20 +31,26 @@ class WorkerManager {
     logger.info('Starting queue workers');
 
     try {
-      // Start booking workers (1 concurrent for dev) - CRITICAL - ALWAYS ENABLED
-      this.startBookingWorkers(1);
-
-      // DISABLED - Not critical for MVP, reduces Redis usage by ~60%
-      // Uncomment these when you have more Redis capacity or paid tier
+      // ALL WORKERS DISABLED - ServiceTitan integration moved to synchronous calls
+      // Workers were consuming 40-50K Redis requests/day on Upstash free tier (500K limit)
+      // Synchronous integration completes in ~700ms-2s (acceptable UX)
+      // This eliminates ALL Redis polling and extends Upstash free tier indefinitely
+      //
+      // When async processing is needed again (notifications, analytics, etc):
+      // 1. Uncomment worker startup below
+      // 2. Consider paid Redis tier or alternative provider
+      // 3. Re-enable worker startup in app.js
+      //
+      // this.startBookingWorkers(1);
       // this.startNotificationWorkers(1);
       // this.startAnalyticsWorkers(1);
       // this.startIntegrationWorkers(1);
 
-      this.isRunning = true;
-      logger.info('Queue workers started (booking only - notifications/analytics/integrations disabled to save Redis requests)');
+      this.isRunning = false;
+      logger.info('Queue workers disabled - using synchronous ServiceTitan integration (zero Redis polling)');
 
-      // Setup graceful shutdown
-      this.setupGracefulShutdown();
+      // Skip graceful shutdown setup since no workers running
+      // this.setupGracefulShutdown();
     } catch (error) {
       logger.error('Failed to start workers', { error });
       throw error;
