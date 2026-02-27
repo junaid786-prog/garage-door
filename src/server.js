@@ -55,7 +55,10 @@ const startServer = async () => {
     // Initialize rate limiter after Redis connection
     initializeRateLimiter();
 
-    await workerManager.startWorkers();
+    // Workers disabled - ServiceTitan integration moved to synchronous calls (see workers/index.js)
+    // This eliminates 40-50K Redis requests/day and extends Upstash free tier indefinitely
+    // await workerManager.startWorkers();
+    logger.info('Workers disabled - using synchronous ServiceTitan integration');
 
     // Start DLQ monitoring service
     if (config.env !== 'test') {

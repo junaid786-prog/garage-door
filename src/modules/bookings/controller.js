@@ -1,6 +1,7 @@
 const service = require('./service');
 const APIResponse = require('../../utils/response');
-const queueManager = require('../../config/queue');
+const serviceTitanIntegration = require('../integrations/servicetitan/integration');
+const schedulingService = require('../scheduling/service');
 const logger = require('../../utils/logger');
 const { NotFoundError } = require('../../utils/errors');
 
@@ -19,70 +20,107 @@ class BookingController {
       // Create booking synchronously (fast, <500ms)
       const booking = await service.createBooking(req.body);
 
-      // Queue background jobs for external integrations (async, non-blocking)
-      // These run after the user gets their response
+      // Call ServiceTitan integration synchronously (simulated, ~700ms-2s)
+      // NOTE: Workers removed to eliminate Redis polling (was 40-50K requests/day on Upstash)
+      // Synchronous calls complete fast enough for acceptable UX
+      // When Birlasoft values are ready, replace serviceTitanIntegration with birlasoftService
       try {
-        // Prepare booking data for background jobs
-        const bookingJobData = {
-          bookingId: booking.id,
-          bookingData: {
-            id: booking.id,
-            ...req.body, // Original form data
-            // Include database fields that workers might need
-            contactName: booking.contact?.name,
-            phoneE164: booking.contact?.phoneE164,
-            street: booking.address?.street,
-            unit: booking.address?.unit,
-            city: booking.address?.city,
-            state: booking.address?.state,
-            zip: booking.address?.zip,
-            serviceType: booking.service?.type,
-            serviceSymptom: booking.service?.symptom,
-            doorCount: booking.door?.count,
-            doorAgeBucket: booking.door?.age_bucket,
-            occupancyType: booking.occupancy?.type,
-            notes: booking.notes,
-            slotId: booking.scheduling?.slot_id,
-          },
+        logger.info('Creating ServiceTitan job (simulated)', { bookingId: booking.id });
+
+        // Prepare booking data for ServiceTitan integration
+        const bookingData = {
+          id: booking.id,
+          ...req.body, // Original form data
+          // Include database fields for integration
+          contactName: booking.contact?.name,
+          phoneE164: booking.contact?.phoneE164,
+          street: booking.address?.street,
+          unit: booking.address?.unit,
+          city: booking.address?.city,
+          state: booking.address?.state,
+          zip: booking.address?.zip,
+          serviceType: booking.service?.type,
+          serviceSymptom: booking.service?.symptom,
+          doorCount: booking.door?.count,
+          doorAgeBucket: booking.door?.age_bucket,
+          occupancyType: booking.occupancy?.type,
+          notes: booking.notes,
+          slotId: booking.scheduling?.slot_id,
         };
 
-        // Queue ServiceTitan job creation (critical priority)
-        await queueManager.addBookingJob('create-servicetitan-job', bookingJobData, 'critical');
+        const serviceTitanResult = await serviceTitanIntegration.createJobFromBooking(bookingData);
 
-        logger.info('ServiceTitan job queued', {
-          bookingId: booking.id,
-          jobType: 'create-servicetitan-job',
-        });
+        if (serviceTitanResult.success) {
+          // Update booking with ServiceTitan IDs
+          await booking.update({
+            serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+            serviceTitanCustomerId: serviceTitanResult.serviceTitanCustomerId,
+            serviceTitanAppointmentNumber: serviceTitanResult.serviceTitanAppointmentNumber,
+            serviceTitanJobNumber: serviceTitanResult.jobNumber,
+            serviceTitanStatus: serviceTitanResult.status,
+            serviceTitanError: null,
+          });
 
-        // Queue slot confirmation if slot was selected (critical priority)
-        if (booking.scheduling?.slot_id) {
-          await queueManager.addBookingJob(
-            'confirm-time-slot',
-            {
-              bookingId: booking.id,
-              slotData: {
-                slotId: booking.scheduling.slot_id,
-              },
-            },
-            'critical'
-          );
-
-          logger.info('Slot confirmation job queued', {
+          logger.info('ServiceTitan job created successfully', {
             bookingId: booking.id,
-            slotId: booking.scheduling.slot_id,
-            jobType: 'confirm-time-slot',
+            serviceTitanJobId: serviceTitanResult.serviceTitanJobId,
+            jobNumber: serviceTitanResult.jobNumber,
+          });
+        } else {
+          // Mark as failed - ops team will handle manually
+          await booking.update({
+            serviceTitanStatus: 'failed',
+            serviceTitanError: serviceTitanResult.error,
+          });
+
+          logger.error('ServiceTitan job creation failed', {
+            bookingId: booking.id,
+            error: serviceTitanResult.error,
           });
         }
-      } catch (queueError) {
-        // Log queue errors but don't fail the request
-        // The booking was created successfully, queue failures are non-critical
-        logger.error('Failed to queue background jobs', {
+      } catch (stError) {
+        // Log but don't fail the request - booking was created successfully
+        logger.error('ServiceTitan integration error', {
           bookingId: booking.id,
-          error: queueError.message,
+          error: stError.message,
+          stack: stError.stack,
+        });
+
+        await booking.update({
+          serviceTitanStatus: 'failed',
+          serviceTitanError: stError.message,
         });
       }
 
-      // Return immediate response to user (booking created, jobs queued)
+      // Confirm slot if selected (also synchronous now)
+      if (booking.scheduling?.slot_id) {
+        try {
+          logger.info('Confirming time slot', {
+            bookingId: booking.id,
+            slotId: booking.scheduling.slot_id,
+          });
+
+          const slotResult = await schedulingService.confirmReservedSlot(
+            booking.scheduling.slot_id,
+            booking.id
+          );
+
+          logger.info('Time slot confirmed', {
+            bookingId: booking.id,
+            slotId: booking.scheduling.slot_id,
+            success: slotResult.success,
+          });
+        } catch (slotError) {
+          // Don't fail booking if slot confirmation fails (non-critical)
+          logger.warn('Slot confirmation failed (non-critical)', {
+            bookingId: booking.id,
+            slotId: booking.scheduling.slot_id,
+            error: slotError.message,
+          });
+        }
+      }
+
+      // Return response to user (booking created + ST job created/attempted)
       return APIResponse.created(res, booking, 'Booking created successfully');
     } catch (error) {
       next(error);
