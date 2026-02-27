@@ -31,9 +31,9 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      frameSrc: ["'self'", "http://localhost:5173", "https://rapid-response-scheduler.vercel.app", "https://www.googletagmanager.com"],
+      frameSrc: ["'self'", ...config.csp.allowedOrigins, "https://www.googletagmanager.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "http://localhost:5173", "https://rapid-response-scheduler.vercel.app"],
+      connectSrc: ["'self'", ...config.csp.allowedOrigins, "https://www.google-analytics.com", "https://www.googletagmanager.com"],
     },
   },
 }));
