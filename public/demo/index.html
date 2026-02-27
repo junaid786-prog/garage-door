@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A1 Garage Door - Professional Services</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+    }
+    .hero {
+      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+      color: white;
+      padding: 100px 20px;
+      text-align: center;
+    }
+    .hero h1 {
+      font-size: 3.5rem;
+      margin-bottom: 20px;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+    .hero p {
+      font-size: 1.4rem;
+      margin-bottom: 40px;
+      opacity: 0.95;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .cta-button {
+      background: #D7262D;
+      color: white;
+      padding: 20px 60px;
+      font-size: 22px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(215, 38, 45, 0.4);
+      transition: all 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .cta-button:hover {
+      background: #b81e24;
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(215, 38, 45, 0.5);
+    }
+    .cta-button:active {
+      transform: translateY(-1px);
+    }
+    .features {
+      max-width: 1200px;
+      margin: 80px auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 40px;
+    }
+    .feature {
+      padding: 40px 30px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      text-align: center;
+      transition: all 0.3s;
+      border: 2px solid transparent;
+    }
+    .feature:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      border-color: #D7262D;
+    }
+    .feature-icon {
+      font-size: 3.5rem;
+      margin-bottom: 20px;
+      display: block;
+    }
+    .feature h3 {
+      color: #1e3a8a;
+      margin-bottom: 15px;
+      font-size: 1.5rem;
+    }
+    .feature p {
+      color: #666;
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+    .footer {
+      background: #1e3a8a;
+      color: white;
+      text-align: center;
+      padding: 30px 20px;
+      margin-top: 80px;
+    }
+    .demo-badge {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(215, 38, 45, 0.9);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 14px;
+      z-index: 999998;
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+<body>
+  <!-- Demo Badge -->
+  <div class="demo-badge">🎯 LIVE DEMO</div>
+
+  <!-- Hero Section -->
+  <div class="hero">
+    <h1>A1 Garage Door Services</h1>
+    <p>Professional Garage Door Repair & Installation You Can Trust</p>
+    <button id="book-now-btn" class="cta-button">Book Appointment Now</button>
+  </div>
+
+  <!-- Features Section -->
+  <div class="features">
+    <div class="feature">
+      <span class="feature-icon">🚪</span>
+      <h3>Expert Repairs</h3>
+      <p>Fast, reliable garage door repairs by licensed and insured technicians.</p>
+    </div>
+    <div class="feature">
+      <span class="feature-icon">⚙️</span>
+      <h3>Preventive Maintenance</h3>
+      <p>Keep your door running smoothly with professional tune-ups and inspections.</p>
+    </div>
+    <div class="feature">
+      <span class="feature-icon">🆕</span>
+      <h3>New Installations</h3>
+      <p>Quality garage door installation with manufacturer warranty included.</p>
+    </div>
+    <div class="feature">
+      <span class="feature-icon">⚡</span>
+      <h3>Same-Day Service</h3>
+      <p>Emergency repairs available - we're here when you need us most.</p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>&copy; 2026 A1 Garage Door Services. All rights reserved.</p>
+  </div>
+
+  <!-- A1 Widget Embed Script -->
+  <script src="/demo/widget-embed.js"></script>
+
+  <!-- CSS Animations -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</body>
+</html>

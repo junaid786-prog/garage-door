@@ -6,8 +6,8 @@ const path = require('path');
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Path to the CSV file relative to project root
-    const csvPath = path.resolve(__dirname, '../../../../.claude/Ref_docs/export_ServiceTitanData.xlsx.csv');
+    // Path to the CSV file in the data directory
+    const csvPath = path.resolve(__dirname, '../../../data/service-titan-job-types.csv');
 
     // Read and parse CSV file
     console.log('Reading ServiceTitan job types from CSV...');
