@@ -33,8 +33,10 @@ function createTimingMiddleware(options = {}) {
       const durationNs = endTime - startTime;
       const durationMs = Number(durationNs) / 1_000_000; // Convert to milliseconds
 
-      // Add response time header
-      res.setHeader('X-Response-Time', `${durationMs.toFixed(2)}ms`);
+      // Add response time header (only if headers not already sent)
+      if (!res.headersSent) {
+        res.setHeader('X-Response-Time', `${durationMs.toFixed(2)}ms`);
+      }
 
       // Log request details
       const logData = {

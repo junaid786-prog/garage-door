@@ -24,8 +24,19 @@ const queueRoutes = require('./modules/admin/queueRoutes');
  */
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware with CSP configuration for demo page
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      frameSrc: ["'self'", "http://localhost:5173", "https://www.googletagmanager.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "http://localhost:5173"],
+    },
+  },
+}));
 app.use(cors(config.cors));
 
 // Body parsing middleware with size limits (prevent abuse)
@@ -60,6 +71,10 @@ app.use('/api/scheduling', validateApiKey, schedulingRoutes);
 // Admin routes (protected with API key - should add role-based auth in production)
 app.use('/admin/errors', validateApiKey, errorRecoveryRoutes);
 app.use('/admin/queue', validateApiKey, queueRoutes);
+
+// Serve static files from public directory (demo, docs, etc.)
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../public')));
 
 // 404 handler
 app.use((req, res) => {
