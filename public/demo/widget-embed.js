@@ -24,9 +24,9 @@
       overlay.id = 'a1-widget-modal';
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:999999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
 
-      // Create modal container for iframe
+      // Create modal container for iframe (match standalone exactly)
       const modalContainer = document.createElement('div');
-      modalContainer.style.cssText = 'width:min(520px,90vw);height:min(85vh,750px);background:white;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.3);';
+      modalContainer.style.cssText = 'width:520px;height:85vh;max-height:750px;min-height:600px;background:white;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.3);';
 
       // Create iframe
       const iframe = document.createElement('iframe');
