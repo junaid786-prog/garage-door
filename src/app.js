@@ -74,7 +74,21 @@ app.use('/admin/queue', validateApiKey, queueRoutes);
 
 // Serve static files from public directory (demo, docs, etc.)
 const path = require('path');
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../public'), {
+  // In development, disable caching for easier testing
+  // In production, you may want to enable caching with proper ETags
+  setHeaders: (res, _filepath) => {
+    if (config.env === 'development') {
+      // Disable caching in development
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      // In production, cache for 1 hour but allow revalidation
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    }
+  }
+}));
 
 // 404 handler
 app.use((req, res) => {
