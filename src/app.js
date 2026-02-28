@@ -34,6 +34,10 @@ app.use(helmet({
       frameSrc: ["'self'", ...config.csp.allowedOrigins, "https://www.googletagmanager.com"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", ...config.csp.allowedOrigins, "https://www.google-analytics.com", "https://www.googletagmanager.com"],
+      // Control which domains can embed this widget in an iframe
+      frameAncestors: config.csp.allowedEmbedDomains.length > 0
+        ? ["'self'", ...config.csp.allowedEmbedDomains]
+        : ["'self'", "'none'"], // If no domains configured, only allow same-origin embedding
     },
   },
 }));

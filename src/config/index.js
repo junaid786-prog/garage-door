@@ -21,6 +21,14 @@ const config = {
     allowedOrigins: env.CORS_ORIGIN.includes(',')
       ? env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
       : [env.CORS_ORIGIN],
+    // Domains allowed to embed the widget (frame-ancestors)
+    allowedEmbedDomains: env.ALLOWED_EMBED_DOMAINS
+      ? env.ALLOWED_EMBED_DOMAINS.split(',').map((domain) => domain.trim()).filter(Boolean)
+      : [],
+    // Parent origins allowed for postMessage
+    allowedParentOrigins: env.ALLOWED_PARENT_ORIGINS
+      ? env.ALLOWED_PARENT_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+      : [],
   },
 };
 

@@ -25,6 +25,7 @@
       apiUrl: defaultApiUrl,
       apiKey: 'garage-door-api-key-2026',
       prefill: {},
+      allowedOrigins: null, // Optional: Override allowed origins for postMessage validation
       onBookingComplete: null, // Callback when booking is completed
       onError: null, // Callback when error occurs
       onClose: null // Callback when widget closes
@@ -153,7 +154,9 @@
     _setupPostMessageListener: function() {
       this._postMessageHandler = (event) => {
         // Validate origin for security
-        const allowedOrigins = [
+        // NOTE: External sites should update this array to match their widget URL
+        // For production, only include the actual widget domain(s)
+        const allowedOrigins = this.config.allowedOrigins || [
           'http://localhost:5173',
           'http://localhost:3000',
           'https://rapid-response-scheduler.vercel.app',
@@ -161,7 +164,7 @@
         ];
 
         if (!allowedOrigins.includes(event.origin)) {
-          console.warn('[A1Widget] Rejected postMessage from unauthorized origin:', event.origin);
+          console.warn('[A1Widget] SECURITY: Rejected postMessage from unauthorized origin:', event.origin, 'Allowed:', allowedOrigins);
           return;
         }
 
