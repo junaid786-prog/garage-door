@@ -28,11 +28,13 @@
       allowedOrigins: null, // Optional: Override allowed origins for postMessage validation
       onBookingComplete: null, // Callback when booking is completed
       onError: null, // Callback when error occurs
-      onClose: null // Callback when widget closes
+      onClose: null, // Callback when widget closes
+      onSessionStart: null // Callback when widget session starts (for parent analytics)
     },
     iframe: null,
     modalContainer: null,
     loadingSpinner: null,
+    _widgetSession: null, // Store widget session data
 
     open: function(options) {
       this.config = Object.assign({}, this.config, options);
@@ -265,6 +267,31 @@
     _handleWidgetLoaded: function(data) {
       console.log('[A1Widget] Widget loaded successfully. Version:', data.version);
 
+      // Store session data for parent analytics
+      if (data.sessionId) {
+        this._widgetSession = {
+          sessionId: data.sessionId,
+          clientId: data.clientId,
+          utmParams: data.utmParams || {},
+          loadedAt: new Date().toISOString(),
+        };
+
+        console.log('[A1Widget] Session tracking:', {
+          sessionId: data.sessionId,
+          clientId: data.clientId,
+          hasUtmParams: Object.keys(data.utmParams || {}).length > 0,
+        });
+
+        // Call onSessionStart callback if provided
+        if (typeof this.config.onSessionStart === 'function') {
+          try {
+            this.config.onSessionStart(this._widgetSession);
+          } catch (e) {
+            console.error('[A1Widget] Error in onSessionStart callback:', e);
+          }
+        }
+      }
+
       // Hide loading spinner, show iframe
       if (this.loadingSpinner) {
         this.loadingSpinner.style.display = 'none';
@@ -311,6 +338,58 @@
     _handleBookingCompleted: function(data) {
       console.log('[A1Widget] Booking completed!', data);
 
+      // Fire parent's conversion pixels with analytics metadata
+      if (data.analytics) {
+        console.log('[A1Widget] Analytics metadata:', data.analytics);
+
+        // Fire Google Ads conversion (if gtag is available)
+        if (typeof window.gtag === 'function') {
+          try {
+            window.gtag('event', 'conversion', {
+              'send_to': 'AW-XXXXXXXXX/XXXXXX', // Parent should update this with their conversion ID
+              'value': 100.0,
+              'currency': 'USD',
+              'transaction_id': data.bookingId,
+            });
+            console.log('[A1Widget] Fired Google Ads conversion');
+          } catch (e) {
+            console.warn('[A1Widget] Failed to fire Google Ads conversion:', e);
+          }
+        }
+
+        // Fire Facebook Pixel conversion (if fbq is available)
+        if (typeof window.fbq === 'function') {
+          try {
+            window.fbq('track', 'Lead', {
+              content_name: data.serviceType,
+              value: 100.0,
+              currency: 'USD',
+            });
+            console.log('[A1Widget] Fired Facebook Pixel conversion');
+          } catch (e) {
+            console.warn('[A1Widget] Failed to fire Facebook Pixel conversion:', e);
+          }
+        }
+
+        // Fire parent's GA4 event (if available)
+        if (typeof window.gtag === 'function') {
+          try {
+            window.gtag('event', 'widget_booking_completed', {
+              widget_session_id: data.analytics.sessionId,
+              booking_id: data.bookingId,
+              service_type: data.serviceType,
+              same_day: data.analytics.sameDay,
+              utm_source: data.analytics.utmSource,
+              utm_medium: data.analytics.utmMedium,
+              utm_campaign: data.analytics.utmCampaign,
+            });
+            console.log('[A1Widget] Fired parent GA4 event');
+          } catch (e) {
+            console.warn('[A1Widget] Failed to fire parent GA4 event:', e);
+          }
+        }
+      }
+
       // Call onBookingComplete callback if provided
       if (typeof this.config.onBookingComplete === 'function') {
         this.config.onBookingComplete(data);
@@ -347,9 +426,38 @@ document.addEventListener('DOMContentLoaded', function() {
       A1Widget.open({
         prefill: {},
         // Optional callbacks:
+        onSessionStart: function(session) {
+          console.log('[Demo] Widget session started:', session);
+          // Parent can track this session in their own analytics
+          // Example: Fire GA4 event
+          if (typeof gtag === 'function') {
+            gtag('event', 'widget_session_start', {
+              widget_session_id: session.sessionId,
+              widget_client_id: session.clientId,
+              utm_source: session.utmParams.utm_source,
+              utm_medium: session.utmParams.utm_medium,
+            });
+          }
+        },
         onBookingComplete: function(data) {
           console.log('[Demo] Booking completed:', data);
           // Track conversion, redirect, etc.
+
+          // Analytics metadata is available in data.analytics:
+          // - sessionId: Link booking to widget session
+          // - clientId: Cross-session user tracking
+          // - utmSource, utmMedium, utmCampaign: Attribution tracking
+          // - gclid, fbclid, msclkid: Ad platform click IDs
+          // - referrer: Traffic source
+          // - sameDay: Same-day booking flag
+
+          if (data.analytics) {
+            console.log('[Demo] Analytics:', {
+              session: data.analytics.sessionId,
+              attribution: data.analytics.utmSource || 'direct',
+              sameDay: data.analytics.sameDay,
+            });
+          }
         },
         onError: function(error, message) {
           console.error('[Demo] Widget error:', error, message);
