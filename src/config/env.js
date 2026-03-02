@@ -9,6 +9,10 @@ const env = {
   // Security
   API_KEY: process.env.API_KEY,
 
+  // Widget Embedding Security
+  ALLOWED_EMBED_DOMAINS: process.env.ALLOWED_EMBED_DOMAINS || '',
+  ALLOWED_PARENT_ORIGINS: process.env.ALLOWED_PARENT_ORIGINS || '',
+
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,

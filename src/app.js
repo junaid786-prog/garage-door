@@ -34,6 +34,10 @@ app.use(helmet({
       frameSrc: ["'self'", ...config.csp.allowedOrigins, "https://www.googletagmanager.com"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", ...config.csp.allowedOrigins, "https://www.google-analytics.com", "https://www.googletagmanager.com"],
+      // Control which domains can embed this widget in an iframe
+      frameAncestors: config.csp.allowedEmbedDomains.length > 0
+        ? ["'self'", ...config.csp.allowedEmbedDomains]
+        : ["'self'", "'none'"], // If no domains configured, only allow same-origin embedding
     },
   },
 }));
@@ -74,7 +78,21 @@ app.use('/admin/queue', validateApiKey, queueRoutes);
 
 // Serve static files from public directory (demo, docs, etc.)
 const path = require('path');
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../public'), {
+  // In development, disable caching for easier testing
+  // In production, you may want to enable caching with proper ETags
+  setHeaders: (res, _filepath) => {
+    if (config.env === 'development') {
+      // Disable caching in development
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      // In production, cache for 1 hour but allow revalidation
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    }
+  }
+}));
 
 // 404 handler
 app.use((req, res) => {
