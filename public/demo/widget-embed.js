@@ -57,6 +57,18 @@
       // Clean up postMessage listener
       this._cleanupPostMessageListener();
 
+      // Clean up resize and orientation event listeners
+      if (this._resizeHandler) {
+        window.removeEventListener('resize', this._resizeHandler);
+        window.removeEventListener('orientationchange', this._resizeHandler);
+        this._resizeHandler = null;
+      }
+
+      if (this._escHandler) {
+        document.removeEventListener('keydown', this._escHandler);
+        this._escHandler = null;
+      }
+
       // Reset references
       this.iframe = null;
       this.modalContainer = null;
@@ -71,9 +83,19 @@
       overlay.id = 'a1-widget-modal';
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:999999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
 
-      // Create modal container for iframe (match standalone exactly)
+      // Create modal container for iframe (Responsive sizing)
       this.modalContainer = document.createElement('div');
-      this.modalContainer.style.cssText = 'position:relative;width:520px;height:85vh;max-height:750px;min-height:600px;background:white;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.3);';
+      // Use responsive sizing based on viewport
+      const isMobile = window.innerWidth < 640;
+      const isSmallPhone = window.innerWidth < 375;
+      const width = isMobile
+        ? (isSmallPhone ? 'calc(100vw - 16px)' : 'min(480px, calc(100vw - 32px))')
+        : '520px';
+      const borderRadius = isSmallPhone ? '16px' : '20px';
+      const maxHeight = isMobile ? '92vh' : '750px';
+      const minHeight = isMobile ? 'auto' : '600px';
+
+      this.modalContainer.style.cssText = `position:relative;width:${width};height:85vh;max-height:${maxHeight};min-height:${minHeight};background:white;border-radius:${borderRadius};overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.3);`;
 
       // Create loading spinner (shown until widget.loaded event)
       this.loadingSpinner = this._createLoadingSpinner();
@@ -124,6 +146,32 @@
         }
       };
       document.addEventListener('keydown', escHandler);
+
+      // Handle window resize and orientation changes for responsive modal sizing
+      const resizeHandler = () => {
+        if (!this.modalContainer) return;
+
+        const isMobile = window.innerWidth < 640;
+        const isSmallPhone = window.innerWidth < 375;
+        const width = isMobile
+          ? (isSmallPhone ? 'calc(100vw - 16px)' : 'min(480px, calc(100vw - 32px))')
+          : '520px';
+        const borderRadius = isSmallPhone ? '16px' : '20px';
+        const maxHeight = isMobile ? '92vh' : '750px';
+        const minHeight = isMobile ? 'auto' : '600px';
+
+        this.modalContainer.style.width = width;
+        this.modalContainer.style.borderRadius = borderRadius;
+        this.modalContainer.style.maxHeight = maxHeight;
+        this.modalContainer.style.minHeight = minHeight;
+      };
+
+      window.addEventListener('resize', resizeHandler);
+      window.addEventListener('orientationchange', resizeHandler);
+
+      // Store handlers for cleanup
+      this._resizeHandler = resizeHandler;
+      this._escHandler = escHandler;
     },
 
     _createLoadingSpinner: function() {
