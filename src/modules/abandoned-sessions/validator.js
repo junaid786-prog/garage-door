@@ -61,8 +61,6 @@ const abandonedSessionSchema = Joi.object({
  * Middleware to validate abandoned session creation request
  */
 const validateAbandonedSession = (req, res, next) => {
-  console.log('[Abandoned Session Validator] Received payload:', JSON.stringify(req.body, null, 2));
-
   const { error, value } = abandonedSessionSchema.validate(req.body, {
     abortEarly: false, // Return all errors, not just the first one
     stripUnknown: true, // Remove unknown fields
@@ -74,8 +72,6 @@ const validateAbandonedSession = (req, res, next) => {
       message: detail.message,
     }));
 
-    console.log('[Abandoned Session Validator] VALIDATION FAILED:', JSON.stringify(errors, null, 2));
-
     return res.status(400).json({
       success: false,
       error: {
@@ -85,8 +81,6 @@ const validateAbandonedSession = (req, res, next) => {
       },
     });
   }
-
-  console.log('[Abandoned Session Validator] Validation passed');
 
   // Replace req.body with validated and sanitized value
   req.body = value;
