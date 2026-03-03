@@ -36,8 +36,8 @@ const abandonedSessionSchema = Joi.object({
   // Booking context (optional)
   serviceType: Joi.string().max(50).optional().allow(''),
   serviceSymptom: Joi.string().max(50).optional().allow(''),
-  doorCount: Joi.number().integer().min(1).max(10).optional(),
-  selectedDate: Joi.date().optional(),
+  doorCount: Joi.alternatives().try(Joi.number().integer().min(1).max(10), Joi.string()).optional(),
+  selectedDate: Joi.date().optional().allow(null),
   selectedSlotId: Joi.string().max(100).optional().allow(''),
 
   // Abandonment tracking
@@ -61,6 +61,8 @@ const abandonedSessionSchema = Joi.object({
  * Middleware to validate abandoned session creation request
  */
 const validateAbandonedSession = (req, res, next) => {
+  console.log('[Abandoned Session Validator] Received payload:', JSON.stringify(req.body, null, 2));
+
   const { error, value } = abandonedSessionSchema.validate(req.body, {
     abortEarly: false, // Return all errors, not just the first one
     stripUnknown: true, // Remove unknown fields
@@ -72,6 +74,8 @@ const validateAbandonedSession = (req, res, next) => {
       message: detail.message,
     }));
 
+    console.log('[Abandoned Session Validator] VALIDATION FAILED:', JSON.stringify(errors, null, 2));
+
     return res.status(400).json({
       success: false,
       error: {
@@ -81,6 +85,8 @@ const validateAbandonedSession = (req, res, next) => {
       },
     });
   }
+
+  console.log('[Abandoned Session Validator] Validation passed');
 
   // Replace req.body with validated and sanitized value
   req.body = value;

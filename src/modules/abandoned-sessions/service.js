@@ -91,6 +91,21 @@ class AbandonedSessionService {
    * @returns {Object} Transformed data for model
    */
   _transformSessionData(sessionData) {
+    // Convert phone to E.164 format (strip formatting and add +1)
+    let phoneE164 = null;
+    if (sessionData.phone) {
+      // Strip all non-digit characters
+      const digitsOnly = sessionData.phone.replace(/\D/g, '');
+      // Add +1 prefix if not already present
+      if (digitsOnly.length === 10) {
+        phoneE164 = `+1${digitsOnly}`;
+      } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+        phoneE164 = `+${digitsOnly}`;
+      } else {
+        phoneE164 = digitsOnly; // Use as-is if weird length
+      }
+    }
+
     const data = {
       sessionId: sessionData.sessionId,
 
@@ -98,7 +113,7 @@ class AbandonedSessionService {
       firstName: sessionData.firstName || null,
       lastName: sessionData.lastName || null,
       email: sessionData.email || null,
-      phoneE164: sessionData.phone || null,
+      phoneE164: phoneE164,
       smsOptIn: sessionData.smsOptIn || false,
       contactPref: sessionData.contactPref || null,
 

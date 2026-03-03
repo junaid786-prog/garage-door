@@ -65,12 +65,14 @@ app.use(rateLimiter);
 // Health Check endpoints (public - no API key required)
 app.use('/health', healthRoutes);
 
+// Public API routes (no API key - used by sendBeacon which can't send headers)
+app.use('/api/abandoned-sessions', abandonedSessionsRoutes);
+
 // API routes (protected with API key)
 app.use('/api/events', validateApiKey, eventRoutes);
 app.use('/api/bookings', validateApiKey, bookingRoutes);
 app.use('/api/geo', validateApiKey, geoRoutes);
 app.use('/api/scheduling', validateApiKey, schedulingRoutes);
-app.use('/api/abandoned-sessions', validateApiKey, abandonedSessionsRoutes);
 
 // Admin routes (protected with API key - should add role-based auth in production)
 app.use('/admin/errors', validateApiKey, errorRecoveryRoutes);
