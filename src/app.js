@@ -16,6 +16,7 @@ const eventRoutes = require('./modules/events/routes');
 const bookingRoutes = require('./modules/bookings/routes');
 const geoRoutes = require('./modules/geo/routes');
 const schedulingRoutes = require('./modules/scheduling/routes');
+const abandonedSessionsRoutes = require('./modules/abandoned-sessions/routes');
 const errorRecoveryRoutes = require('./modules/admin/errorRecoveryRoutes');
 const queueRoutes = require('./modules/admin/queueRoutes');
 
@@ -69,6 +70,7 @@ app.use('/api/events', validateApiKey, eventRoutes);
 app.use('/api/bookings', validateApiKey, bookingRoutes);
 app.use('/api/geo', validateApiKey, geoRoutes);
 app.use('/api/scheduling', validateApiKey, schedulingRoutes);
+app.use('/api/abandoned-sessions', validateApiKey, abandonedSessionsRoutes);
 
 // Admin routes (protected with API key - should add role-based auth in production)
 app.use('/admin/errors', validateApiKey, errorRecoveryRoutes);
