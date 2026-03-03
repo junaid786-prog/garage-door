@@ -31,15 +31,15 @@ class AbandonedSessionController {
       // Create abandoned session record
       const session = await service.createAbandonedSession(req.body);
 
-      // TODO Phase 2: Queue for ServiceTitan processing (async, don't block response)
-      // setImmediate(() => {
-      //   service.sendToServiceTitan(session.id).catch(err => {
-      //     logger.error('Failed to send abandoned session to ServiceTitan', {
-      //       sessionId: session.id,
-      //       error: err.message,
-      //     });
-      //   });
-      // });
+      // Queue for ServiceTitan processing (async, don't block response)
+      setImmediate(() => {
+        service.sendToServiceTitan(session.id).catch(err => {
+          logger.error('Failed to send abandoned session to ServiceTitan', {
+            sessionId: session.id,
+            error: err.message,
+          });
+        });
+      });
 
       return APIResponse.created(res, {
         id: session.id,

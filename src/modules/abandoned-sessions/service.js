@@ -144,13 +144,172 @@ class AbandonedSessionService {
   }
 
   /**
-   * PHASE 2: Send abandoned session to ServiceTitan
-   * This will be implemented in Phase 2
+   * Send abandoned session to ServiceTitan as a Booking
+   * @param {string} sessionId - Abandoned session ID
+   * @returns {Promise<Object>} Result with success status
    */
   async sendToServiceTitan(sessionId) {
-    // TODO: Implement in Phase 2
-    logger.info('ServiceTitan integration not yet implemented (Phase 2)', { sessionId });
-    return { success: false, message: 'Not implemented - Phase 2' };
+    const serviceTitanIntegration = require('../integrations/servicetitan/integration');
+
+    try {
+      const session = await AbandonedSession.findByPk(sessionId);
+
+      if (!session) {
+        throw new Error(`Abandoned session not found: ${sessionId}`);
+      }
+
+      // Check if already sent to avoid duplicates
+      if (session.servicetitanBookingId) {
+        logger.info('Session already sent to ServiceTitan', {
+          sessionId,
+          stBookingId: session.servicetitanBookingId,
+        });
+        return { success: true, alreadySent: true };
+      }
+
+      // Validate that we have minimum required contact info (email OR phone)
+      if (!session.email && !session.phoneE164) {
+        logger.warn('Cannot send to ServiceTitan - no contact info', {
+          sessionId,
+        });
+        await session.update({
+          servicetitanStatus: 'failed',
+          servicetitanError: 'No email or phone provided',
+        });
+        return {
+          success: false,
+          error: 'No email or phone provided',
+          shouldRetry: false,
+        };
+      }
+
+      // Prepare data for ServiceTitan
+      const bookingData = {
+        sessionId: session.sessionId,
+        firstName: session.firstName,
+        lastName: session.lastName,
+        email: session.email,
+        phone: session.phoneE164,
+        smsOptIn: session.smsOptIn || false,
+        contactPref: session.contactPref,
+        street: session.street,
+        unit: session.unit,
+        city: session.city,
+        state: session.state,
+        zip: session.zip,
+        utms: {
+          utm_source: session.utmSource,
+          utm_medium: session.utmMedium,
+          utm_campaign: session.utmCampaign,
+          utm_term: session.utmTerm,
+          utm_content: session.utmContent,
+        },
+        campaignId: session.campaignId,
+        flowSource: session.flowSource,
+        serviceType: session.serviceType,
+        serviceSymptom: session.serviceSymptom,
+        doorCount: session.doorCount,
+        selectedDate: session.selectedDate,
+        selectedSlotId: session.selectedSlotId,
+        lastStepName: session.lastStepName,
+        lastStepNumber: session.lastStepNumber,
+        timeElapsedMs: session.timeElapsedMs,
+        idleTimeMs: session.idleTimeMs,
+        abandonmentReason: session.abandonmentReason,
+      };
+
+      // Call ServiceTitan integration with retry logic
+      let result;
+      let attempts = 0;
+      const maxAttempts = 3;
+      const retryDelays = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
+
+      while (attempts < maxAttempts) {
+        result = await serviceTitanIntegration.createBooking(bookingData);
+
+        if (result.success) {
+          // Update session with ServiceTitan booking ID
+          await session.update({
+            servicetitanBookingId: result.serviceTitanBookingId,
+            servicetitanStatus: result.status || 'pending',
+            sentToServicetitanAt: new Date(),
+          });
+
+          logger.info('Abandoned session sent to ServiceTitan', {
+            sessionId,
+            stBookingId: result.serviceTitanBookingId,
+            bookingNumber: result.bookingNumber,
+            attempts: attempts + 1,
+          });
+
+          return {
+            success: true,
+            stBookingId: result.serviceTitanBookingId,
+            bookingNumber: result.bookingNumber,
+            attempts: attempts + 1,
+          };
+        } else if (result.shouldRetry && attempts < maxAttempts - 1) {
+          // Retry with exponential backoff
+          attempts++;
+          const delay = retryDelays[attempts - 1];
+          logger.warn('ServiceTitan booking creation failed, retrying', {
+            sessionId,
+            attempt: attempts,
+            maxAttempts,
+            retryInMs: delay,
+            error: result.error,
+          });
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          // Final failure (either non-retryable or max attempts reached)
+          break;
+        }
+      }
+
+      // Mark as failed after all retry attempts
+      await session.update({
+        servicetitanStatus: 'failed',
+        servicetitanError: result.error,
+      });
+
+      logger.error('ServiceTitan booking creation failed permanently', {
+        sessionId,
+        error: result.error,
+        attempts: attempts + 1,
+        shouldRetry: result.shouldRetry,
+      });
+
+      return {
+        success: false,
+        error: result.error,
+        shouldRetry: result.shouldRetry,
+        attempts: attempts + 1,
+      };
+    } catch (error) {
+      logger.error('Error sending abandoned session to ServiceTitan', {
+        sessionId,
+        error: error.message,
+        stack: error.stack,
+      });
+
+      // Try to update session status if we have the session object
+      try {
+        const session = await AbandonedSession.findByPk(sessionId);
+        if (session) {
+          await session.update({
+            servicetitanStatus: 'failed',
+            servicetitanError: error.message,
+          });
+        }
+      } catch (updateError) {
+        logger.error('Failed to update session status', {
+          sessionId,
+          error: updateError.message,
+        });
+      }
+
+      return { success: false, error: error.message, shouldRetry: true };
+    }
   }
 }
 

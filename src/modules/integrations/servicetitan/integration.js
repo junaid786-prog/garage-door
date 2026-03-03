@@ -166,6 +166,45 @@ class ServiceTitanIntegration {
   }
 
   /**
+   * Create a ServiceTitan BOOKING from abandoned session data
+   * @param {Object} abandonedSessionData - Abandoned session data
+   * @returns {Promise<Object>} ServiceTitan booking result
+   */
+  async createBooking(abandonedSessionData) {
+    try {
+      // Create the booking in ServiceTitan
+      const booking = await serviceTitanService.createBooking(abandonedSessionData);
+
+      logger.info('ServiceTitan booking created for abandoned session', {
+        sessionId: abandonedSessionData.sessionId,
+        bookingId: booking.id,
+        bookingNumber: booking.bookingNumber,
+        brand: booking.brand,
+      });
+
+      return {
+        success: true,
+        serviceTitanBookingId: booking.id,
+        bookingNumber: booking.bookingNumber,
+        status: booking.status,
+        brand: booking.brand,
+        createdAt: booking.createdAt,
+      };
+    } catch (error) {
+      logger.error('ServiceTitan booking creation failed', {
+        sessionId: abandonedSessionData.sessionId,
+        error: error.message,
+      });
+
+      return {
+        success: false,
+        error: error.message,
+        shouldRetry: this._shouldRetryError(error),
+      };
+    }
+  }
+
+  /**
    * Map booking data to ServiceTitan format
    * @param {Object} bookingData - Booking data
    * @returns {Object} ServiceTitan formatted data
