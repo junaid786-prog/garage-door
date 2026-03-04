@@ -16,6 +16,7 @@ const eventRoutes = require('./modules/events/routes');
 const bookingRoutes = require('./modules/bookings/routes');
 const geoRoutes = require('./modules/geo/routes');
 const schedulingRoutes = require('./modules/scheduling/routes');
+const abandonedSessionsRoutes = require('./modules/abandoned-sessions/routes');
 const errorRecoveryRoutes = require('./modules/admin/errorRecoveryRoutes');
 const queueRoutes = require('./modules/admin/queueRoutes');
 
@@ -63,6 +64,9 @@ app.use(rateLimiter);
 
 // Health Check endpoints (public - no API key required)
 app.use('/health', healthRoutes);
+
+// Public API routes (no API key - used by sendBeacon which can't send headers)
+app.use('/api/abandoned-sessions', abandonedSessionsRoutes);
 
 // API routes (protected with API key)
 app.use('/api/events', validateApiKey, eventRoutes);

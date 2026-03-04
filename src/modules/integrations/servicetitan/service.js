@@ -656,6 +656,251 @@ class ServiceTitanService {
       },
     };
   }
+
+  /**
+   * Create a ServiceTitan BOOKING (not Job) for abandoned session
+   * @param {Object} abandonedSessionData - Abandoned session data
+   * @returns {Promise<Object>} ServiceTitan booking result
+   */
+  async createBooking(abandonedSessionData) {
+    try {
+      // Map to ServiceTitan booking format
+      const stBookingData = this._mapAbandonedSessionToBooking(abandonedSessionData);
+
+      // Authenticate
+      await this.authenticate();
+
+      // Simulate booking creation (in real implementation, call ST Bookings API)
+      await this._simulateDelay(400);
+
+      // Simulate errors
+      this._simulateErrors(stBookingData);
+
+      // Generate unique booking ID
+      const bookingId = Date.now() + Math.floor(Math.random() * 1000);
+
+      const serviceTitanBooking = {
+        id: bookingId,
+        bookingNumber: `BK-${String(bookingId).padStart(6, '0')}`,
+        status: 'pending',
+
+        // Customer information
+        customer: {
+          id: this._generateCustomerId(),
+          name: `${stBookingData.firstName} ${stBookingData.lastName}`,
+          phone: stBookingData.phone,
+          email: stBookingData.email,
+        },
+
+        // Service location
+        location: {
+          address: stBookingData.address,
+          city: stBookingData.city,
+          state: stBookingData.state,
+          zip: stBookingData.zip,
+        },
+
+        // Booking details
+        requestedTime: stBookingData.requestedTime,
+        campaign: stBookingData.campaign,
+        brand: stBookingData.brand,
+        source: stBookingData.source,
+        summary: stBookingData.summary,
+
+        // Custom fields
+        customFields: stBookingData.customFields,
+
+        // Timestamps
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+
+        // Simulation metadata
+        _simulation: {
+          created: true,
+          type: 'abandoned_session_booking',
+          apiVersion: '2024-11-13',
+          responseTime: '400ms',
+        },
+      };
+
+      logger.info('ServiceTitan booking created for abandoned session', {
+        bookingId: serviceTitanBooking.id,
+        sessionId: stBookingData.customFields?.sessionId,
+        brand: stBookingData.brand,
+      });
+
+      return serviceTitanBooking;
+    } catch (error) {
+      logger.error('ServiceTitan booking creation failed', {
+        sessionId: abandonedSessionData.sessionId,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Map abandoned session to ServiceTitan booking format
+   * @param {Object} sessionData - Abandoned session data
+   * @returns {Object} ServiceTitan formatted booking data
+   * @private
+   */
+  _mapAbandonedSessionToBooking(sessionData) {
+    // Format name
+    const firstName = sessionData.firstName || 'Unknown';
+    const lastName = sessionData.lastName || 'Unknown';
+
+    // Format phone
+    let phone = sessionData.phone;
+    if (phone && phone.startsWith('+1')) {
+      phone = phone.substring(2); // Remove +1 for ServiceTitan
+    }
+    if (phone) {
+      phone = phone.replace(/\D/g, ''); // Remove all non-digits
+    }
+
+    // Format address (partial allowed)
+    const street = sessionData.street || 'Unknown';
+    const cityStateZip = [sessionData.city, sessionData.state, sessionData.zip]
+      .filter(Boolean)
+      .join(', ');
+    const fullAddress = cityStateZip
+      ? `${street}, ${cityStateZip} US`
+      : `${street} US`;
+
+    // Build summary (CRITICAL - clearly label as abandoned)
+    const summary = this._buildAbandonedSessionSummary(sessionData);
+
+    // Map campaign to brand
+    const brand = this._mapCampaignToBrand(sessionData.campaignId, sessionData.utms);
+
+    return {
+      // Customer info
+      firstName,
+      lastName,
+      phone: phone || 'Not provided',
+      email: sessionData.email || 'no-email@provided.com',
+
+      // Address (partial allowed)
+      address: fullAddress,
+      city: sessionData.city || 'Unknown',
+      state: sessionData.state || 'Unknown',
+      zip: sessionData.zip || 'Unknown',
+
+      // Booking details
+      requestedTime: sessionData.selectedDate || new Date().toISOString(),
+      campaign: sessionData.utms?.utm_campaign || sessionData.campaignId || 'Unknown',
+      brand: brand,
+      source: 'abandoned_rapid_response',
+
+      // Summary with all context
+      summary: summary,
+
+      // Custom fields
+      customFields: {
+        smsOptIn: sessionData.smsOptIn || false,
+        flowSource: sessionData.flowSource || 'unknown',
+        lastStep: sessionData.lastStepName || 'unknown',
+        sessionId: sessionData.sessionId,
+        abandonmentReason: sessionData.abandonmentReason || 'unknown',
+      },
+    };
+  }
+
+  /**
+   * Build detailed summary for ServiceTitan (matches client example exactly)
+   * @param {Object} sessionData - Abandoned session data
+   * @returns {string} Formatted summary
+   * @private
+   */
+  _buildAbandonedSessionSummary(sessionData) {
+    const lines = [
+      'THIS IS AN ABANDONED SESSION FROM RAPID RESPONSE.',
+      'THIS CUSTOMER DID NOT COMPLETE THE BOOKING PROCESS IN YOUR SCHEDULER.',
+      'YOU MAY REACH OUT TO THEM AT YOUR DISCRETION TO TRY TO CONVERT THEM.',
+      '',
+      `Customer Name: ${sessionData.firstName || ''} ${sessionData.lastName || ''}`.trim(),
+      `SMS Communications Opt-In: ${sessionData.smsOptIn ? 'Yes' : 'No'}`,
+      `Email: ${sessionData.email || 'Not provided'}`,
+      `Phone: ${sessionData.phone || 'Not provided'}`,
+      `Brand: ${this._mapCampaignToBrand(sessionData.campaignId, sessionData.utms)}`,
+      `Campaign: ${sessionData.utms?.utm_campaign || sessionData.campaignId || 'Unknown'}`,
+    ];
+
+    // Add optional context if available
+    if (sessionData.flowSource) {
+      lines.push(`Flow Source: ${sessionData.flowSource}`);
+    }
+
+    if (sessionData.lastStepName) {
+      lines.push(
+        `Last Step: ${sessionData.lastStepName} (Step ${sessionData.lastStepNumber || 0})`
+      );
+    }
+
+    if (sessionData.timeElapsedMs) {
+      lines.push(`Time in Flow: ${Math.round(sessionData.timeElapsedMs / 1000)}s`);
+    }
+
+    if (sessionData.idleTimeMs) {
+      lines.push(`Idle Time: ${Math.round(sessionData.idleTimeMs / 1000)}s`);
+    }
+
+    // Add service details if provided
+    if (sessionData.serviceType) {
+      lines.push('', '--- Service Request ---');
+      lines.push(`Service Type: ${sessionData.serviceType}`);
+
+      if (sessionData.serviceSymptom) {
+        lines.push(`Service Symptom: ${sessionData.serviceSymptom}`);
+      }
+
+      if (sessionData.doorCount) {
+        lines.push(`Door Count: ${sessionData.doorCount}`);
+      }
+
+      if (sessionData.selectedDate) {
+        lines.push(`Requested Date: ${new Date(sessionData.selectedDate).toLocaleString()}`);
+      }
+    }
+
+    // Add UTM params if available
+    if (sessionData.utms && Object.keys(sessionData.utms).some((k) => sessionData.utms[k])) {
+      lines.push('', '--- Marketing Attribution ---');
+      if (sessionData.utms.utm_source) lines.push(`Source: ${sessionData.utms.utm_source}`);
+      if (sessionData.utms.utm_medium) lines.push(`Medium: ${sessionData.utms.utm_medium}`);
+      if (sessionData.utms.utm_campaign)
+        lines.push(`Campaign: ${sessionData.utms.utm_campaign}`);
+      if (sessionData.utms.utm_term) lines.push(`Term: ${sessionData.utms.utm_term}`);
+      if (sessionData.utms.utm_content) lines.push(`Content: ${sessionData.utms.utm_content}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Map campaign ID to brand name based on prefix
+   * @param {string} campaignId - Campaign ID
+   * @param {Object} utms - UTM parameters
+   * @returns {string} Brand name
+   * @private
+   */
+  _mapCampaignToBrand(campaignId, utms) {
+    // Brand mapping based on campaign patterns
+    const campaignSource = campaignId || utms?.utm_campaign || '';
+
+    const brandMap = {
+      DON: "Don's Garage Doors",
+      ABC: 'ABC Garage Doors',
+      A1: 'A1 Garage Door Service',
+      // Add more mappings as needed
+    };
+
+    // Extract prefix from campaign ID (e.g., "DON-CLB-EN-PPC" -> "DON")
+    const prefix = campaignSource.split('-')[0]?.toUpperCase() || '';
+
+    return brandMap[prefix] || 'A1 Garage Door Service';
+  }
 }
 
 module.exports = new ServiceTitanService();
