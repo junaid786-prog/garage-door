@@ -11,6 +11,7 @@ dist/
 .claude/
 llm/
 CHANGELOG.md
+CLAUDE.md
 
 # Database files
 *.sqlite
