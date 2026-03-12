@@ -10,71 +10,7 @@ const {
   ConflictError,
 } = require('../../../utils/errors');
 const logger = require('../../../utils/logger');
-
-/**
- * BU + Job Type routing lookup table
- * Source: Rapid Response BU and Job Type Routing Logic (provided by A1/Alec)
- * Key format: `${serviceType}:${doorAgeBucket}:${doorCountBucket}`
- * doorCountBucket: '1' = 1 door, '2plus' = 2 or more doors
- */
-const JOB_TYPE_ROUTING = {
-  // PHX-Service (repair jobs)
-  'repair:lt_8:1': {
-    businessUnitId: 1745222538,
-    jobTypeId: 828618933,
-    businessUnitName: 'PHX-Service',
-    priority: 'high',
-  },
-  'repair:lt_8:2plus': {
-    businessUnitId: 1745222538,
-    jobTypeId: 677867201,
-    businessUnitName: 'PHX-Service',
-    priority: 'high',
-  },
-  'repair:gte_8:1': {
-    businessUnitId: 1745222538,
-    jobTypeId: 828618933,
-    businessUnitName: 'PHX-Service',
-    priority: 'high',
-  },
-  'repair:gte_8:2plus': {
-    businessUnitId: 1745222538,
-    jobTypeId: 677861965,
-    businessUnitName: 'PHX-Service',
-    priority: 'high',
-  },
-  // PHX-Door Sales (new door / replacement)
-  'replacement:lt_8:1': {
-    businessUnitId: 425554014,
-    jobTypeId: 677851333,
-    businessUnitName: 'PHX-Door Sales',
-    priority: 'normal',
-  },
-  'replacement:lt_8:2plus': {
-    businessUnitId: 425554014,
-    jobTypeId: 677859588,
-    businessUnitName: 'PHX-Door Sales',
-    priority: 'normal',
-  },
-  'replacement:gte_8:1': {
-    businessUnitId: 425554014,
-    jobTypeId: 677860192,
-    businessUnitName: 'PHX-Door Sales',
-    priority: 'normal',
-  },
-  'replacement:gte_8:2plus': {
-    businessUnitId: 425554014,
-    jobTypeId: 677854800,
-    businessUnitName: 'PHX-Door Sales',
-    priority: 'normal',
-  },
-};
-const DEFAULT_ROUTING = {
-  businessUnitId: 1745222538,
-  jobTypeId: 828618933,
-  businessUnitName: 'PHX-Service',
-  priority: 'high',
-};
+const { JOB_TYPE_ROUTING, DEFAULT_ROUTING } = require('./jobTypeRouting');
 
 /**
  * ServiceTitan integration service
@@ -258,6 +194,7 @@ class ServiceTitanService {
 
     const routing = this._resolveJobRouting(
       bookingData.serviceType,
+      bookingData.serviceSymptom,
       bookingData.doorAgeBucket,
       bookingData.doorCount
     );
@@ -645,20 +582,24 @@ class ServiceTitanService {
   /**
    * Resolve ServiceTitan businessUnitId and jobTypeId from booking attributes
    * @param {string} serviceType - 'repair' | 'replacement'
+   * @param {string} serviceSymptom - 'wont_open' | 'wont_close' | 'tune_up' | 'spring_bang' | 'other'
    * @param {string} doorAgeBucket - 'lt_8' | 'gte_8'
    * @param {number|string} doorCount - number of doors
-   * @returns {{ businessUnitId, jobTypeId, businessUnitName, priority }}
+   * @returns {{ businessUnitId, jobTypeId, businessUnitName, jobTypeName, priority }}
    */
-  _resolveJobRouting(serviceType, doorAgeBucket, doorCount) {
+  _resolveJobRouting(serviceType, serviceSymptom, doorAgeBucket, doorCount) {
     const typeKey = serviceType === 'replacement' ? 'replacement' : 'repair';
+    // replacement always uses 'other' symptom key (no symptom breakdown for new door)
+    const symptomKey = typeKey === 'replacement' ? 'other' : (serviceSymptom || 'other');
     const ageKey = doorAgeBucket === 'gte_8' ? 'gte_8' : 'lt_8';
     const countKey = Number(doorCount) === 1 ? '1' : '2plus';
-    const key = `${typeKey}:${ageKey}:${countKey}`;
+    const key = `${typeKey}:${symptomKey}:${ageKey}:${countKey}`;
     const routing = JOB_TYPE_ROUTING[key];
 
     if (!routing) {
       logger.warn('No ST routing match found, using default', {
         serviceType,
+        serviceSymptom,
         doorAgeBucket,
         doorCount,
         key,
@@ -671,6 +612,7 @@ class ServiceTitanService {
       businessUnitId: routing.businessUnitId,
       businessUnitName: routing.businessUnitName,
       jobTypeId: routing.jobTypeId,
+      jobTypeName: routing.jobTypeName,
       priority: routing.priority,
     });
 
