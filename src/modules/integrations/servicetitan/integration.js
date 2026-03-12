@@ -271,6 +271,8 @@ class ServiceTitanIntegration {
 
       // Job details
       problemType: problemType || 'other',
+      serviceType: bookingData.serviceType || null,
+      doorAgeBucket: bookingData.doorAgeBucket || null,
       doorCount: parseInt(
         bookingData.doorCount || bookingData.numberOfDoors || bookingData.door?.count || 1
       ),

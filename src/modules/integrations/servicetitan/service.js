@@ -12,6 +12,71 @@ const {
 const logger = require('../../../utils/logger');
 
 /**
+ * BU + Job Type routing lookup table
+ * Source: Rapid Response BU and Job Type Routing Logic (provided by A1/Alec)
+ * Key format: `${serviceType}:${doorAgeBucket}:${doorCountBucket}`
+ * doorCountBucket: '1' = 1 door, '2plus' = 2 or more doors
+ */
+const JOB_TYPE_ROUTING = {
+  // PHX-Service (repair jobs)
+  'repair:lt_8:1': {
+    businessUnitId: 1745222538,
+    jobTypeId: 828618933,
+    businessUnitName: 'PHX-Service',
+    priority: 'high',
+  },
+  'repair:lt_8:2plus': {
+    businessUnitId: 1745222538,
+    jobTypeId: 677867201,
+    businessUnitName: 'PHX-Service',
+    priority: 'high',
+  },
+  'repair:gte_8:1': {
+    businessUnitId: 1745222538,
+    jobTypeId: 828618933,
+    businessUnitName: 'PHX-Service',
+    priority: 'high',
+  },
+  'repair:gte_8:2plus': {
+    businessUnitId: 1745222538,
+    jobTypeId: 677861965,
+    businessUnitName: 'PHX-Service',
+    priority: 'high',
+  },
+  // PHX-Door Sales (new door / replacement)
+  'replacement:lt_8:1': {
+    businessUnitId: 425554014,
+    jobTypeId: 677851333,
+    businessUnitName: 'PHX-Door Sales',
+    priority: 'normal',
+  },
+  'replacement:lt_8:2plus': {
+    businessUnitId: 425554014,
+    jobTypeId: 677859588,
+    businessUnitName: 'PHX-Door Sales',
+    priority: 'normal',
+  },
+  'replacement:gte_8:1': {
+    businessUnitId: 425554014,
+    jobTypeId: 677860192,
+    businessUnitName: 'PHX-Door Sales',
+    priority: 'normal',
+  },
+  'replacement:gte_8:2plus': {
+    businessUnitId: 425554014,
+    jobTypeId: 677854800,
+    businessUnitName: 'PHX-Door Sales',
+    priority: 'normal',
+  },
+};
+const DEFAULT_ROUTING = {
+  businessUnitId: 1745222538,
+  jobTypeId: 828618933,
+  businessUnitName: 'PHX-Service',
+  priority: 'high',
+};
+
+/**
  * ServiceTitan integration service
  * Simulates ServiceTitan API for job creation and management
  *
@@ -191,12 +256,18 @@ class ServiceTitanService {
     // Generate unique job ID using timestamp + random to avoid collisions
     const jobId = Date.now() + Math.floor(Math.random() * 1000);
 
+    const routing = this._resolveJobRouting(
+      bookingData.serviceType,
+      bookingData.doorAgeBucket,
+      bookingData.doorCount
+    );
+
     const serviceTitanJob = {
       id: jobId,
       externalId: bookingData.bookingId || null,
       jobNumber: `JOB-${String(jobId).padStart(6, '0')}`,
       status: 'scheduled',
-      priority: this._determinePriority(bookingData.problemType),
+      priority: routing.priority,
 
       // Customer information
       customer: {
@@ -233,8 +304,10 @@ class ServiceTitanService {
       timeSlot: bookingData.timeSlot,
       estimatedDuration: this._estimateDuration(bookingData.problemType),
 
-      // ServiceTitan specific fields
-      businessUnit: this._getBusinessUnit(bookingData.zip),
+      // ServiceTitan specific fields (BU + job type resolved from routing logic)
+      businessUnitId: routing.businessUnitId,
+      businessUnitName: routing.businessUnitName,
+      jobTypeId: routing.jobTypeId,
       campaignId: bookingData.campaignId || null,
       source: 'online_booking_widget',
 
@@ -570,6 +643,41 @@ class ServiceTitanService {
   }
 
   /**
+   * Resolve ServiceTitan businessUnitId and jobTypeId from booking attributes
+   * @param {string} serviceType - 'repair' | 'replacement'
+   * @param {string} doorAgeBucket - 'lt_8' | 'gte_8'
+   * @param {number|string} doorCount - number of doors
+   * @returns {{ businessUnitId, jobTypeId, businessUnitName, priority }}
+   */
+  _resolveJobRouting(serviceType, doorAgeBucket, doorCount) {
+    const typeKey = serviceType === 'replacement' ? 'replacement' : 'repair';
+    const ageKey = doorAgeBucket === 'gte_8' ? 'gte_8' : 'lt_8';
+    const countKey = Number(doorCount) === 1 ? '1' : '2plus';
+    const key = `${typeKey}:${ageKey}:${countKey}`;
+    const routing = JOB_TYPE_ROUTING[key];
+
+    if (!routing) {
+      logger.warn('No ST routing match found, using default', {
+        serviceType,
+        doorAgeBucket,
+        doorCount,
+        key,
+      });
+      return DEFAULT_ROUTING;
+    }
+
+    logger.info('ST job routing resolved', {
+      key,
+      businessUnitId: routing.businessUnitId,
+      businessUnitName: routing.businessUnitName,
+      jobTypeId: routing.jobTypeId,
+      priority: routing.priority,
+    });
+
+    return routing;
+  }
+
+  /**
    * Generate customer ID
    */
   _generateCustomerId() {
@@ -764,9 +872,7 @@ class ServiceTitanService {
     const cityStateZip = [sessionData.city, sessionData.state, sessionData.zip]
       .filter(Boolean)
       .join(', ');
-    const fullAddress = cityStateZip
-      ? `${street}, ${cityStateZip} US`
-      : `${street} US`;
+    const fullAddress = cityStateZip ? `${street}, ${cityStateZip} US` : `${street} US`;
 
     // Build summary (CRITICAL - clearly label as abandoned)
     const summary = this._buildAbandonedSessionSummary(sessionData);
@@ -869,8 +975,7 @@ class ServiceTitanService {
       lines.push('', '--- Marketing Attribution ---');
       if (sessionData.utms.utm_source) lines.push(`Source: ${sessionData.utms.utm_source}`);
       if (sessionData.utms.utm_medium) lines.push(`Medium: ${sessionData.utms.utm_medium}`);
-      if (sessionData.utms.utm_campaign)
-        lines.push(`Campaign: ${sessionData.utms.utm_campaign}`);
+      if (sessionData.utms.utm_campaign) lines.push(`Campaign: ${sessionData.utms.utm_campaign}`);
       if (sessionData.utms.utm_term) lines.push(`Term: ${sessionData.utms.utm_term}`);
       if (sessionData.utms.utm_content) lines.push(`Content: ${sessionData.utms.utm_content}`);
     }
