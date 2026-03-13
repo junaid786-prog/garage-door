@@ -10,6 +10,7 @@ const {
   ConflictError,
 } = require('../../../utils/errors');
 const logger = require('../../../utils/logger');
+const { JOB_TYPE_ROUTING, DEFAULT_ROUTING } = require('./jobTypeRouting');
 
 /**
  * ServiceTitan integration service
@@ -191,12 +192,19 @@ class ServiceTitanService {
     // Generate unique job ID using timestamp + random to avoid collisions
     const jobId = Date.now() + Math.floor(Math.random() * 1000);
 
+    const routing = this._resolveJobRouting(
+      bookingData.serviceType,
+      bookingData.serviceSymptom,
+      bookingData.doorAgeBucket,
+      bookingData.doorCount
+    );
+
     const serviceTitanJob = {
       id: jobId,
       externalId: bookingData.bookingId || null,
       jobNumber: `JOB-${String(jobId).padStart(6, '0')}`,
       status: 'scheduled',
-      priority: this._determinePriority(bookingData.problemType),
+      priority: routing.priority,
 
       // Customer information
       customer: {
@@ -233,8 +241,10 @@ class ServiceTitanService {
       timeSlot: bookingData.timeSlot,
       estimatedDuration: this._estimateDuration(bookingData.problemType),
 
-      // ServiceTitan specific fields
-      businessUnit: this._getBusinessUnit(bookingData.zip),
+      // ServiceTitan specific fields (BU + job type resolved from routing logic)
+      businessUnitId: routing.businessUnitId,
+      businessUnitName: routing.businessUnitName,
+      jobTypeId: routing.jobTypeId,
       campaignId: bookingData.campaignId || null,
       source: 'online_booking_widget',
 
@@ -570,6 +580,46 @@ class ServiceTitanService {
   }
 
   /**
+   * Resolve ServiceTitan businessUnitId and jobTypeId from booking attributes
+   * @param {string} serviceType - 'repair' | 'replacement'
+   * @param {string} serviceSymptom - 'wont_open' | 'wont_close' | 'tune_up' | 'spring_bang' | 'other'
+   * @param {string} doorAgeBucket - 'lt_8' | 'gte_8'
+   * @param {number|string} doorCount - number of doors
+   * @returns {{ businessUnitId, jobTypeId, businessUnitName, jobTypeName, priority }}
+   */
+  _resolveJobRouting(serviceType, serviceSymptom, doorAgeBucket, doorCount) {
+    const typeKey = serviceType === 'replacement' ? 'replacement' : 'repair';
+    // replacement always uses 'other' symptom key (no symptom breakdown for new door)
+    const symptomKey = typeKey === 'replacement' ? 'other' : (serviceSymptom || 'other');
+    const ageKey = doorAgeBucket === 'gte_8' ? 'gte_8' : 'lt_8';
+    const countKey = Number(doorCount) === 1 ? '1' : '2plus';
+    const key = `${typeKey}:${symptomKey}:${ageKey}:${countKey}`;
+    const routing = JOB_TYPE_ROUTING[key];
+
+    if (!routing) {
+      logger.warn('No ST routing match found, using default', {
+        serviceType,
+        serviceSymptom,
+        doorAgeBucket,
+        doorCount,
+        key,
+      });
+      return DEFAULT_ROUTING;
+    }
+
+    logger.info('ST job routing resolved', {
+      key,
+      businessUnitId: routing.businessUnitId,
+      businessUnitName: routing.businessUnitName,
+      jobTypeId: routing.jobTypeId,
+      jobTypeName: routing.jobTypeName,
+      priority: routing.priority,
+    });
+
+    return routing;
+  }
+
+  /**
    * Generate customer ID
    */
   _generateCustomerId() {
@@ -764,9 +814,7 @@ class ServiceTitanService {
     const cityStateZip = [sessionData.city, sessionData.state, sessionData.zip]
       .filter(Boolean)
       .join(', ');
-    const fullAddress = cityStateZip
-      ? `${street}, ${cityStateZip} US`
-      : `${street} US`;
+    const fullAddress = cityStateZip ? `${street}, ${cityStateZip} US` : `${street} US`;
 
     // Build summary (CRITICAL - clearly label as abandoned)
     const summary = this._buildAbandonedSessionSummary(sessionData);
@@ -869,8 +917,7 @@ class ServiceTitanService {
       lines.push('', '--- Marketing Attribution ---');
       if (sessionData.utms.utm_source) lines.push(`Source: ${sessionData.utms.utm_source}`);
       if (sessionData.utms.utm_medium) lines.push(`Medium: ${sessionData.utms.utm_medium}`);
-      if (sessionData.utms.utm_campaign)
-        lines.push(`Campaign: ${sessionData.utms.utm_campaign}`);
+      if (sessionData.utms.utm_campaign) lines.push(`Campaign: ${sessionData.utms.utm_campaign}`);
       if (sessionData.utms.utm_term) lines.push(`Term: ${sessionData.utms.utm_term}`);
       if (sessionData.utms.utm_content) lines.push(`Content: ${sessionData.utms.utm_content}`);
     }

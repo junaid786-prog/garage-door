@@ -28,24 +28,25 @@ class BookingController {
         logger.info('Creating ServiceTitan job (simulated)', { bookingId: booking.id });
 
         // Prepare booking data for ServiceTitan integration
+        // booking is a raw Sequelize model instance — use flat camelCase field names directly
         const bookingData = {
           id: booking.id,
-          ...req.body, // Original form data
-          // Include database fields for integration
-          contactName: booking.contact?.name,
-          phoneE164: booking.contact?.phoneE164,
-          street: booking.address?.street,
-          unit: booking.address?.unit,
-          city: booking.address?.city,
-          state: booking.address?.state,
-          zip: booking.address?.zip,
-          serviceType: booking.service?.type,
-          serviceSymptom: booking.service?.symptom,
-          doorCount: booking.door?.count,
-          doorAgeBucket: booking.door?.age_bucket,
-          occupancyType: booking.occupancy?.type,
+          ...req.body, // Original form data (nested: service, door, address, etc.)
+          // Flat Sequelize model fields override the nested req.body values
+          contactName: booking.contactName,
+          phoneE164: booking.phoneE164,
+          street: booking.street,
+          unit: booking.unit,
+          city: booking.city,
+          state: booking.state,
+          zip: booking.zip,
+          serviceType: booking.serviceType,
+          serviceSymptom: booking.serviceSymptom,
+          doorCount: booking.doorCount,
+          doorAgeBucket: booking.doorAgeBucket,
+          occupancyType: booking.occupancyType,
           notes: booking.notes,
-          slotId: booking.scheduling?.slot_id,
+          slotId: booking.slotId,
         };
 
         const serviceTitanResult = await serviceTitanIntegration.createJobFromBooking(bookingData);
